@@ -141,8 +141,6 @@ class DebugModule(implicit p: Parameters) extends Module {
   val command = Reg(new ACCESS_REGISTERFields())
   val dmcontrol = Reg(new DMCONTROLFields())
   val data0 = Reg(UInt(xlen.W))  //arg0
-  val data1 = Reg(UInt(xlen.W))  //arg1
-  val data2 = Reg(UInt(xlen.W))  //arg2
   val sbaddr = Reg(UInt(xlen.W))
   val sbdata = Reg(UInt(xlen.W))
   val resetcore = Reg(init = true.B)
@@ -156,18 +154,13 @@ class DebugModule(implicit p: Parameters) extends Module {
     DMI_RegAddrs.DMI_ABSTRACTAUTO -> 0.U,
     DMI_RegAddrs.DMI_CFGSTRADDR0 -> 0.U,
     DMI_RegAddrs.DMI_DATA0 -> data0,
-    (DMI_RegAddrs.DMI_DATA0 + 1) -> data1,
-    (DMI_RegAddrs.DMI_DATA0 + 2) -> data2,
     DMI_RegAddrs.DMI_AUTHDATA -> 0.U,
     DMI_RegAddrs.DMI_SERCS -> 0.U,
     DMI_RegAddrs.DMI_SBCS -> sbcs.asUInt,
     DMI_RegAddrs.DMI_SBADDRESS0 -> sbaddr,
     DMI_RegAddrs.DMI_SBDATA0 -> sbdata)
   val decoded_addr = read_map map { case (k, v) => k -> (addr === k) }
-  val reqval = Reg(init = false.B)
-  val dwreqval = Reg(init = false.B)
   val memongoing = Reg(init = false.B)
-  val firstreaddone = Reg(init = false.B)
   io.dmi.resp.bits.data := Mux1H(for ((k, v) <- read_map) yield decoded_addr(k) -> v)
   dmstatus.allhalted := dmcontrol.haltreq
   dmstatus.allrunning := dmcontrol.resumereq 
@@ -211,12 +204,8 @@ class DebugModule(implicit p: Parameters) extends Module {
       sbcs.sbautoread := tempsbcs.sbautoread
       sbcs.sberror := tempsbcs.sberror
     }
-    when(decoded_addr(DMI_RegAddrs.DMI_SBADDRESS0)) { 
-      sbaddr := wdata
-    }
+    when(decoded_addr(DMI_RegAddrs.DMI_SBADDRESS0)) { sbaddr := wdata }
     when(decoded_addr(DMI_RegAddrs.DMI_DATA0)) { data0 := wdata }
-    when(decoded_addr(DMI_RegAddrs.DMI_DATA0+1)) { data1 := wdata }
-    when(decoded_addr(DMI_RegAddrs.DMI_DATA0+2)) { data2 := wdata }
   }
 
   io.debugmem.resp.ready := true.B 

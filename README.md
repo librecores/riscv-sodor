@@ -46,7 +46,9 @@ Getting the repo
 git clone https://github.com/librecores/riscv-sodor
 cd riscv-sodor
 git checkout tilelink2_fpga
-git submodule update --init --recursive
+git submodule update --init --recursive -- riscv-tests riscv-fesvr 
+git submodule update --init -- rocket-chip #shallow clone only
+cd rocket-chip && git submodule update --init -- hardfloat && cd ..
 ```
 
 Directory Structure
@@ -57,7 +59,7 @@ emulator - C source used as test harness are fed to verilator to generate emulat
 
 fpga - TCL scripts to build bitstream for PYNQ-Z1
 
-freechipsproject - Source files compiled, packaged and used as a library in the rest of the project
+rocket-chip - Source files compiled, packaged and used as a library in the rest of the project
 
 project - Scala configuration files fed to Scala Build Tool(sbt)
 
