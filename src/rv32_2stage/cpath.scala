@@ -43,8 +43,8 @@ class CtlPath(implicit p: Parameters) extends Module
 {
    val io = IO(new CpathIo())
    //Initialize IO
-   io.dmem.req.bits := new MemReq(p(xprlen)).fromBits(0.U)
-   io.imem.req.bits := new MemReq(p(xprlen)).fromBits(0.U)
+   io.dmem.req.bits := 0.U.asTypeOf(new MemReq(p(xprlen)))
+   io.imem.req.bits := 0.U.asTypeOf(new MemReq(p(xprlen)))
    io.imem.resp.ready := true.B
    io.dmem.resp.ready := true.B
    
