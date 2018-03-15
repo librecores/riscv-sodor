@@ -9,7 +9,7 @@ import chisel3._
 import freechips.rocketchip.config._
 import Common._
 
-class CoreIo(implicit p: Parameters) extends Bundle 
+class CoreIo(implicit val p: Parameters) extends Bundle 
 {
    val ddpath = Flipped(new DebugDPath())
    val dcpath = Flipped(new DebugCPath())

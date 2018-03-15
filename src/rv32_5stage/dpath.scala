@@ -16,7 +16,7 @@ import freechips.rocketchip.config._
 import Constants._
 import Common._
 
-class DatToCtlIo(implicit p: Parameters) extends Bundle()
+class DatToCtlIo(implicit val p: Parameters) extends Bundle()
 {
    val dec_inst    = Output(UInt(p(xprlen).W))
    val exe_br_eq   = Output(Bool())
@@ -27,10 +27,9 @@ class DatToCtlIo(implicit p: Parameters) extends Bundle()
    val mem_ctrl_dmem_val = Output(Bool())
 
    val csr_eret = Output(Bool())
-   override def cloneType = { new DatToCtlIo().asInstanceOf[this.type] }
 }
 
-class DpathIo(implicit p: Parameters) extends Bundle()
+class DpathIo(implicit val p: Parameters) extends Bundle()
 {
    val ddpath = Flipped(new DebugDPath())
    val imem = new MemPortIo(p(xprlen))
@@ -43,8 +42,8 @@ class DatPath(implicit p: Parameters) extends Module
 {
    val io = IO(new DpathIo())
    //Initialize IO
-   io.dmem.req.bits := new MemReq(p(xprlen)).fromBits(0.U)
-   io.imem.req.bits := new MemReq(p(xprlen)).fromBits(0.U)
+   io.dmem.req.bits := 0.U.asTypeOf(new MemReq(p(xprlen)))
+   io.imem.req.bits := 0.U.asTypeOf(new MemReq(p(xprlen)))
    io.imem.resp.ready := true.B
    io.dmem.resp.ready := true.B
    io.imem.req.valid := false.B
@@ -53,30 +52,30 @@ class DatPath(implicit p: Parameters) extends Module
    // Pipeline State Registers
 
    // Instruction Fetch State
-   val if_reg_pc             = Reg(init = START_ADDR)
+   val if_reg_pc             = RegInit(START_ADDR)
 
    // Instruction Decode State
-   val dec_reg_inst          = Reg(init=BUBBLE)
-   val dec_reg_pc            = Reg(init=0.asUInt(xlen.W))
+   val dec_reg_inst          = RegInit(BUBBLE)
+   val dec_reg_pc            = RegInit(0.U(xlen.W))
 
    // Execute State
-   val exe_reg_inst          = Reg(init=BUBBLE)
-   val exe_reg_pc            = Reg(init=0.asUInt(xlen.W))
+   val exe_reg_inst          = RegInit(BUBBLE)
+   val exe_reg_pc            = RegInit(0.U(xlen.W))
    val exe_reg_wbaddr        = Reg(UInt(5.W))
    val exe_reg_rs1_addr      = Reg(UInt(5.W))
    val exe_reg_rs2_addr      = Reg(UInt(5.W))
    val exe_reg_op1_data      = Reg(UInt(xlen.W))
    val exe_reg_op2_data      = Reg(UInt(xlen.W))
    val exe_reg_rs2_data      = Reg(UInt(xlen.W))
-   val exe_reg_ctrl_br_type  = Reg(init=BR_N)
+   val exe_reg_ctrl_br_type  = RegInit(BR_N)
    val exe_reg_ctrl_op2_sel  = Reg(UInt())
    val exe_reg_ctrl_alu_fun  = Reg(UInt())
    val exe_reg_ctrl_wb_sel   = Reg(UInt())
-   val exe_reg_ctrl_rf_wen   = Reg(init=false.B)
-   val exe_reg_ctrl_mem_val  = Reg(init=false.B)
-   val exe_reg_ctrl_mem_fcn  = Reg(init=M_X)
-   val exe_reg_ctrl_mem_typ  = Reg(init=MT_X)
-   val exe_reg_ctrl_csr_cmd  = Reg(init=CSR.N)
+   val exe_reg_ctrl_rf_wen   = RegInit(false.B)
+   val exe_reg_ctrl_mem_val  = RegInit(false.B)
+   val exe_reg_ctrl_mem_fcn  = RegInit(M_X)
+   val exe_reg_ctrl_mem_typ  = RegInit(MT_X)
+   val exe_reg_ctrl_csr_cmd  = RegInit(CSR.N)
 
    // Memory State
    val mem_reg_pc            = Reg(UInt(xlen.W))
@@ -88,17 +87,17 @@ class DatPath(implicit p: Parameters) extends Module
    val mem_reg_op1_data      = Reg(UInt(xlen.W))
    val mem_reg_op2_data      = Reg(UInt(xlen.W))
    val mem_reg_rs2_data      = Reg(UInt(xlen.W))
-   val mem_reg_ctrl_rf_wen   = Reg(init=false.B)
-   val mem_reg_ctrl_mem_val  = Reg(init=false.B)
-   val mem_reg_ctrl_mem_fcn  = Reg(init=M_X)
-   val mem_reg_ctrl_mem_typ  = Reg(init=MT_X)
+   val mem_reg_ctrl_rf_wen   = RegInit(false.B)
+   val mem_reg_ctrl_mem_val  = RegInit(false.B)
+   val mem_reg_ctrl_mem_fcn  = RegInit(M_X)
+   val mem_reg_ctrl_mem_typ  = RegInit(MT_X)
    val mem_reg_ctrl_wb_sel   = Reg(UInt())
-   val mem_reg_ctrl_csr_cmd  = Reg(init=CSR.N)
+   val mem_reg_ctrl_csr_cmd  = RegInit(CSR.N)
 
    // Writeback State
    val wb_reg_wbaddr         = Reg(UInt())
    val wb_reg_wbdata         = Reg(UInt(xlen.W))
-   val wb_reg_ctrl_rf_wen    = Reg(init=false.B)
+   val wb_reg_ctrl_rf_wen    = RegInit(false.B)
 
 
    //**********************************
@@ -198,7 +197,7 @@ class DatPath(implicit p: Parameters) extends Module
                (io.ctl.op2_sel === OP2_SBTYPE) -> imm_sbtype_sext,
                (io.ctl.op2_sel === OP2_UTYPE)  -> imm_utype_sext,
                (io.ctl.op2_sel === OP2_UJTYPE) -> imm_ujtype_sext
-               )).toUInt
+               )).asUInt
 
 
 
@@ -216,21 +215,21 @@ class DatPath(implicit p: Parameters) extends Module
       dec_op1_data := MuxCase(rf_rs1_data, Array(
                            ((io.ctl.op1_sel === OP1_IMZ)) -> imm_z,
                            ((io.ctl.op1_sel === OP1_PC)) -> dec_reg_pc,
-                           ((exe_reg_wbaddr === dec_rs1_addr) && (dec_rs1_addr != 0.U) && exe_reg_ctrl_rf_wen) -> exe_alu_out,
-                           ((mem_reg_wbaddr === dec_rs1_addr) && (dec_rs1_addr != 0.U) && mem_reg_ctrl_rf_wen) -> mem_wbdata,
-                           ((wb_reg_wbaddr  === dec_rs1_addr) && (dec_rs1_addr != 0.U) &&  wb_reg_ctrl_rf_wen) -> wb_reg_wbdata
+                           ((exe_reg_wbaddr === dec_rs1_addr) && (dec_rs1_addr =/= 0.U) && exe_reg_ctrl_rf_wen) -> exe_alu_out,
+                           ((mem_reg_wbaddr === dec_rs1_addr) && (dec_rs1_addr =/= 0.U) && mem_reg_ctrl_rf_wen) -> mem_wbdata,
+                           ((wb_reg_wbaddr  === dec_rs1_addr) && (dec_rs1_addr =/= 0.U) &&  wb_reg_ctrl_rf_wen) -> wb_reg_wbdata
                            ))
 
       dec_op2_data := MuxCase(dec_alu_op2, Array(
-                           ((exe_reg_wbaddr === dec_rs2_addr) && (dec_rs2_addr != 0.U) && exe_reg_ctrl_rf_wen && (io.ctl.op2_sel === OP2_RS2)) -> exe_alu_out,
-                           ((mem_reg_wbaddr === dec_rs2_addr) && (dec_rs2_addr != 0.U) && mem_reg_ctrl_rf_wen && (io.ctl.op2_sel === OP2_RS2)) -> mem_wbdata,
-                           ((wb_reg_wbaddr  === dec_rs2_addr) && (dec_rs2_addr != 0.U) &&  wb_reg_ctrl_rf_wen && (io.ctl.op2_sel === OP2_RS2)) -> wb_reg_wbdata
+                           ((exe_reg_wbaddr === dec_rs2_addr) && (dec_rs2_addr =/= 0.U) && exe_reg_ctrl_rf_wen && (io.ctl.op2_sel === OP2_RS2)) -> exe_alu_out,
+                           ((mem_reg_wbaddr === dec_rs2_addr) && (dec_rs2_addr =/= 0.U) && mem_reg_ctrl_rf_wen && (io.ctl.op2_sel === OP2_RS2)) -> mem_wbdata,
+                           ((wb_reg_wbaddr  === dec_rs2_addr) && (dec_rs2_addr =/= 0.U) &&  wb_reg_ctrl_rf_wen && (io.ctl.op2_sel === OP2_RS2)) -> wb_reg_wbdata
                            ))
 
       dec_rs2_data := MuxCase(rf_rs2_data, Array(
-                           ((exe_reg_wbaddr === dec_rs2_addr) && (dec_rs2_addr != 0.U) && exe_reg_ctrl_rf_wen) -> exe_alu_out,
-                           ((mem_reg_wbaddr === dec_rs2_addr) && (dec_rs2_addr != 0.U) && mem_reg_ctrl_rf_wen) -> mem_wbdata,
-                           ((wb_reg_wbaddr  === dec_rs2_addr) && (dec_rs2_addr != 0.U) &&  wb_reg_ctrl_rf_wen) -> wb_reg_wbdata
+                           ((exe_reg_wbaddr === dec_rs2_addr) && (dec_rs2_addr =/= 0.U) && exe_reg_ctrl_rf_wen) -> exe_alu_out,
+                           ((mem_reg_wbaddr === dec_rs2_addr) && (dec_rs2_addr =/= 0.U) && mem_reg_ctrl_rf_wen) -> mem_wbdata,
+                           ((wb_reg_wbaddr  === dec_rs2_addr) && (dec_rs2_addr =/= 0.U) &&  wb_reg_ctrl_rf_wen) -> wb_reg_wbdata
                            ))
    }
    else
@@ -296,25 +295,25 @@ class DatPath(implicit p: Parameters) extends Module
    //**********************************
    // Execute Stage
 
-   val exe_alu_op1 = exe_reg_op1_data.toUInt
-   val exe_alu_op2 = exe_reg_op2_data.toUInt
+   val exe_alu_op1 = exe_reg_op1_data.asUInt
+   val exe_alu_op2 = exe_reg_op2_data.asUInt
 
    // ALU
-   val alu_shamt     = exe_alu_op2(4,0).toUInt
+   val alu_shamt     = exe_alu_op2(4,0).asUInt
    val exe_adder_out = (exe_alu_op1 + exe_alu_op2)(xlen-1,0)
 
    //only for debug purposes right now until debug() works
-   exe_alu_out := MuxCase(exe_reg_inst.toUInt, Array(
+   exe_alu_out := MuxCase(exe_reg_inst.asUInt, Array(
                   (exe_reg_ctrl_alu_fun === ALU_ADD)  -> exe_adder_out,
-                  (exe_reg_ctrl_alu_fun === ALU_SUB)  -> (exe_alu_op1 - exe_alu_op2).toUInt,
-                  (exe_reg_ctrl_alu_fun === ALU_AND)  -> (exe_alu_op1 & exe_alu_op2).toUInt,
-                  (exe_reg_ctrl_alu_fun === ALU_OR)   -> (exe_alu_op1 | exe_alu_op2).toUInt,
-                  (exe_reg_ctrl_alu_fun === ALU_XOR)  -> (exe_alu_op1 ^ exe_alu_op2).toUInt,
-                  (exe_reg_ctrl_alu_fun === ALU_SLT)  -> (exe_alu_op1.toSInt < exe_alu_op2.toSInt).toUInt,
-                  (exe_reg_ctrl_alu_fun === ALU_SLTU) -> (exe_alu_op1 < exe_alu_op2).toUInt,
-                  (exe_reg_ctrl_alu_fun === ALU_SLL)  -> ((exe_alu_op1 << alu_shamt)(xlen-1, 0)).toUInt,
-                  (exe_reg_ctrl_alu_fun === ALU_SRA)  -> (exe_alu_op1.toSInt >> alu_shamt).toUInt,
-                  (exe_reg_ctrl_alu_fun === ALU_SRL)  -> (exe_alu_op1 >> alu_shamt).toUInt,
+                  (exe_reg_ctrl_alu_fun === ALU_SUB)  -> (exe_alu_op1 - exe_alu_op2).asUInt,
+                  (exe_reg_ctrl_alu_fun === ALU_AND)  -> (exe_alu_op1 & exe_alu_op2).asUInt,
+                  (exe_reg_ctrl_alu_fun === ALU_OR)   -> (exe_alu_op1 | exe_alu_op2).asUInt,
+                  (exe_reg_ctrl_alu_fun === ALU_XOR)  -> (exe_alu_op1 ^ exe_alu_op2).asUInt,
+                  (exe_reg_ctrl_alu_fun === ALU_SLT)  -> (exe_alu_op1.asSInt < exe_alu_op2.asSInt).asUInt,
+                  (exe_reg_ctrl_alu_fun === ALU_SLTU) -> (exe_alu_op1 < exe_alu_op2).asUInt,
+                  (exe_reg_ctrl_alu_fun === ALU_SLL)  -> ((exe_alu_op1 << alu_shamt)(xlen-1, 0)).asUInt,
+                  (exe_reg_ctrl_alu_fun === ALU_SRA)  -> (exe_alu_op1.asSInt >> alu_shamt).asUInt,
+                  (exe_reg_ctrl_alu_fun === ALU_SRL)  -> (exe_alu_op1 >> alu_shamt).asUInt,
                   (exe_reg_ctrl_alu_fun === ALU_COPY_1)-> exe_alu_op1,
                   (exe_reg_ctrl_alu_fun === ALU_COPY_2)-> exe_alu_op2
                   ))
@@ -360,7 +359,8 @@ class DatPath(implicit p: Parameters) extends Module
    csr.io.rw.wdata := mem_reg_alu_out
    csr.io.rw.cmd   := mem_reg_ctrl_csr_cmd
 
-   csr.io.retire    := !(Reg(next = mem_reg_inst) === BUBBLE) // can be made better
+   csr.io.hartid := 0.U
+   csr.io.retire    := !(RegNext(mem_reg_inst) === BUBBLE) // can be made better
    csr.io.illegal := io.ctl.mem_illegal
    csr.io.pc        := mem_reg_pc
    exception_target := csr.io.evec
@@ -401,15 +401,15 @@ class DatPath(implicit p: Parameters) extends Module
    // datapath to controlpath outputs
    io.dat.dec_inst   := dec_reg_inst
    io.dat.exe_br_eq  := (exe_reg_op1_data === exe_reg_rs2_data)
-   io.dat.exe_br_lt  := (exe_reg_op1_data.toSInt < exe_reg_rs2_data.toSInt)
-   io.dat.exe_br_ltu := (exe_reg_op1_data.toUInt < exe_reg_rs2_data.toUInt)
+   io.dat.exe_br_lt  := (exe_reg_op1_data.asSInt < exe_reg_rs2_data.asSInt)
+   io.dat.exe_br_ltu := (exe_reg_op1_data.asUInt < exe_reg_rs2_data.asUInt)
    io.dat.exe_br_type:= exe_reg_ctrl_br_type
 
    io.dat.mem_ctrl_dmem_val := mem_reg_ctrl_mem_val
 
    // datapath to data memory outputs
    io.dmem.req.valid     := mem_reg_ctrl_mem_val
-   io.dmem.req.bits.addr := mem_reg_alu_out.toUInt
+   io.dmem.req.bits.addr := mem_reg_alu_out.asUInt
    io.dmem.req.bits.fcn  := mem_reg_ctrl_mem_fcn
    io.dmem.req.bits.typ  := mem_reg_ctrl_mem_typ
    io.dmem.req.bits.data := mem_reg_rs2_data
@@ -420,8 +420,8 @@ class DatPath(implicit p: Parameters) extends Module
       , if_reg_pc
       , dec_reg_pc
       , exe_reg_pc
-      , Reg(next=exe_reg_pc)
-      , Reg(next=Reg(next=exe_reg_pc))
+      , RegNext(exe_reg_pc)
+      , RegNext(RegNext(exe_reg_pc))
       , Mux(wb_reg_ctrl_rf_wen, Str("M"), Str(" ")) 
       , Mux(mem_reg_ctrl_rf_wen, Str("Z"), Str(" "))
       , wb_reg_wbaddr

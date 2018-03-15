@@ -43,14 +43,13 @@ class CtlToDatIo extends Bundle()
    val mem_illegal = Output(Bool()) // tell the CSR that illegal instruction was encountered
 }
 
-class CpathIo(implicit p: Parameters) extends Bundle()
+class CpathIo(implicit val p: Parameters) extends Bundle()
 {
    val dcpath = Flipped(new DebugCPath())
    val imem = new MemPortIo(p(xprlen))
    val dmem = new MemPortIo(p(xprlen))
    val dat  = Flipped(new DatToCtlIo())
    val ctl  = new CtlToDatIo()
-   override def cloneType = { new CpathIo().asInstanceOf[this.type] }
 }
 
 
@@ -58,8 +57,8 @@ class CtlPath(implicit p: Parameters) extends Module
 {
    val io = IO(new CpathIo())
    //Initialize IO
-   io.imem.req.bits := new MemReq(p(xprlen)).fromBits(0.U)
-   io.dmem.req.bits := new MemReq(p(xprlen)).fromBits(0.U)
+   io.imem.req.bits := 0.U.asTypeOf(new MemReq(p(xprlen)))
+   io.dmem.req.bits := 0.U.asTypeOf(new MemReq(p(xprlen)))
    io.imem.resp.ready := true.B
    io.dmem.resp.ready := true.B
    io.imem.req.valid := false.B
@@ -150,8 +149,8 @@ class CtlPath(implicit p: Parameters) extends Module
                                                             PC_4
                      ))))))))))
 
-   val ifkill  = (ctrl_exe_pc_sel != PC_4) || !io.imem.resp.valid || cs_fencei || Reg(next=cs_fencei)
-   val deckill = (ctrl_exe_pc_sel != PC_4)
+   val ifkill  = (ctrl_exe_pc_sel =/= PC_4) || !io.imem.resp.valid || cs_fencei || RegNext(cs_fencei)
+   val deckill = (ctrl_exe_pc_sel =/= PC_4)
 
    // Exception Handling ---------------------
 
@@ -171,12 +170,12 @@ class CtlPath(implicit p: Parameters) extends Module
    val exe_reg_wbaddr      = Reg(UInt(5.W))
    val mem_reg_wbaddr      = Reg(UInt(5.W))
    val wb_reg_wbaddr       = Reg(UInt(5.W))
-   val exe_reg_ctrl_rf_wen = Reg(init=false.B)
-   val mem_reg_ctrl_rf_wen = Reg(init=false.B)
-   val wb_reg_ctrl_rf_wen  = Reg(init=false.B)
-   val exe_reg_illegal   = Reg(init=false.B)
+   val exe_reg_ctrl_rf_wen = RegInit(false.B)
+   val mem_reg_ctrl_rf_wen = RegInit(false.B)
+   val wb_reg_ctrl_rf_wen  = RegInit(false.B)
+   val exe_reg_illegal   = RegInit(false.B)
 
-   val exe_reg_is_csr = Reg(init=false.B)
+   val exe_reg_is_csr = RegInit(false.B)
 
    val mem_stall = Wire(Bool())
    when (!hazard_stall && !mem_stall)
@@ -192,7 +191,7 @@ class CtlPath(implicit p: Parameters) extends Module
       {
          exe_reg_wbaddr      := dec_wbaddr
          exe_reg_ctrl_rf_wen := cs_rf_wen
-         exe_reg_is_csr      := cs_csr_cmd != CSR.N && cs_csr_cmd != CSR.I
+         exe_reg_is_csr      := cs_csr_cmd =/= CSR.N && cs_csr_cmd =/= CSR.I
          exe_reg_illegal   := dec_illegal
       }
    }
@@ -210,7 +209,7 @@ class CtlPath(implicit p: Parameters) extends Module
    mem_reg_ctrl_rf_wen := exe_reg_ctrl_rf_wen
    wb_reg_ctrl_rf_wen  := mem_reg_ctrl_rf_wen
 
-   val exe_inst_is_load = Reg(init=false.B)
+   val exe_inst_is_load = RegInit(false.B)
 
    when (!mem_stall)
    {
@@ -224,21 +223,21 @@ class CtlPath(implicit p: Parameters) extends Module
    if (p(USE_FULL_BYPASSING))
    {
       // stall for load-use hazard
-      hazard_stall := ((exe_inst_is_load) && (exe_reg_wbaddr === dec_rs1_addr) && (exe_reg_wbaddr != 0.U) && dec_rs1_oen) ||
-               ((exe_inst_is_load) && (exe_reg_wbaddr === dec_rs2_addr) && (exe_reg_wbaddr != 0.U) && dec_rs2_oen) ||
+      hazard_stall := ((exe_inst_is_load) && (exe_reg_wbaddr === dec_rs1_addr) && (exe_reg_wbaddr =/= 0.U) && dec_rs1_oen) ||
+               ((exe_inst_is_load) && (exe_reg_wbaddr === dec_rs2_addr) && (exe_reg_wbaddr =/= 0.U) && dec_rs2_oen) ||
                (exe_reg_is_csr)
    }
    else
    {
       // stall for all hazards
-      hazard_stall := ((exe_reg_wbaddr === dec_rs1_addr) && (dec_rs1_addr != 0.U) && exe_reg_ctrl_rf_wen && dec_rs1_oen) ||
-               ((mem_reg_wbaddr === dec_rs1_addr) && (dec_rs1_addr != 0.U) && mem_reg_ctrl_rf_wen && dec_rs1_oen) ||
-               ((wb_reg_wbaddr  === dec_rs1_addr) && (dec_rs1_addr != 0.U) &&  wb_reg_ctrl_rf_wen && dec_rs1_oen) ||
-               ((exe_reg_wbaddr === dec_rs2_addr) && (dec_rs2_addr != 0.U) && exe_reg_ctrl_rf_wen && dec_rs2_oen) ||
-               ((mem_reg_wbaddr === dec_rs2_addr) && (dec_rs2_addr != 0.U) && mem_reg_ctrl_rf_wen && dec_rs2_oen) ||
-               ((wb_reg_wbaddr  === dec_rs2_addr) && (dec_rs2_addr != 0.U) &&  wb_reg_ctrl_rf_wen && dec_rs2_oen) ||
-               ((exe_inst_is_load) && (exe_reg_wbaddr === dec_rs1_addr) && (exe_reg_wbaddr != 0.U) && dec_rs1_oen) ||
-               ((exe_inst_is_load) && (exe_reg_wbaddr === dec_rs2_addr) && (exe_reg_wbaddr != 0.U) && dec_rs2_oen) ||
+      hazard_stall := ((exe_reg_wbaddr === dec_rs1_addr) && (dec_rs1_addr =/= 0.U) && exe_reg_ctrl_rf_wen && dec_rs1_oen) ||
+               ((mem_reg_wbaddr === dec_rs1_addr) && (dec_rs1_addr =/= 0.U) && mem_reg_ctrl_rf_wen && dec_rs1_oen) ||
+               ((wb_reg_wbaddr  === dec_rs1_addr) && (dec_rs1_addr =/= 0.U) &&  wb_reg_ctrl_rf_wen && dec_rs1_oen) ||
+               ((exe_reg_wbaddr === dec_rs2_addr) && (dec_rs2_addr =/= 0.U) && exe_reg_ctrl_rf_wen && dec_rs2_oen) ||
+               ((mem_reg_wbaddr === dec_rs2_addr) && (dec_rs2_addr =/= 0.U) && mem_reg_ctrl_rf_wen && dec_rs2_oen) ||
+               ((wb_reg_wbaddr  === dec_rs2_addr) && (dec_rs2_addr =/= 0.U) &&  wb_reg_ctrl_rf_wen && dec_rs2_oen) ||
+               ((exe_inst_is_load) && (exe_reg_wbaddr === dec_rs1_addr) && (exe_reg_wbaddr =/= 0.U) && dec_rs1_oen) ||
+               ((exe_inst_is_load) && (exe_reg_wbaddr === dec_rs2_addr) && (exe_reg_wbaddr =/= 0.U) && dec_rs2_oen) ||
                ((exe_reg_is_csr))
    }
 
@@ -262,9 +261,9 @@ class CtlPath(implicit p: Parameters) extends Module
    
    // we need to stall IF while fencei goes through DEC and EXE, as there may
    // be a store we need to wait to clear in MEM.
-   io.ctl.fencei     := cs_fencei || Reg(next=cs_fencei) 
+   io.ctl.fencei     := cs_fencei || RegNext(cs_fencei) 
 
-   io.ctl.mem_illegal := Reg(next=exe_reg_illegal)
+   io.ctl.mem_illegal := RegNext(exe_reg_illegal)
                                     
     
    // convert CSR instructions with raddr1 == 0 to read-only CSR commands

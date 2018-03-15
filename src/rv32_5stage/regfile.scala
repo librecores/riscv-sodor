@@ -11,7 +11,7 @@ import freechips.rocketchip.config._
 import Constants._
 import Common._
 
-class RFileIo(implicit p: Parameters) extends Bundle()
+class RFileIo(implicit val p: Parameters) extends Bundle()
 {
    val xlen = p(xprlen)
    val rs1_addr = Input(UInt(5.W))
@@ -32,21 +32,21 @@ class RegisterFile(implicit p: Parameters) extends Module
 {
    val io = IO(new RFileIo())
 
-   val regfile = Mem(UInt(p(xprlen).W), 32)
+   val regfile = Mem(32, UInt(p(xprlen).W))
 
-   when (io.wen && (io.waddr != 0.U))
+   when (io.wen && (io.waddr =/= 0.U))
    {
       regfile(io.waddr) := io.wdata
    }
 
-   when (io.dm_en && (io.dm_addr != 0.U))
+   when (io.dm_en && (io.dm_addr =/= 0.U))
    {
       regfile(io.dm_addr) := io.dm_wdata
    }
 
-   io.rs1_data := Mux((io.rs1_addr != 0.U), regfile(io.rs1_addr), 0.U)
-   io.rs2_data := Mux((io.rs2_addr != 0.U), regfile(io.rs2_addr), 0.U)
-   io.dm_rdata := Mux((io.dm_addr != 0.U), regfile(io.dm_addr), 0.U)
+   io.rs1_data := Mux((io.rs1_addr =/= 0.U), regfile(io.rs1_addr), 0.U)
+   io.rs2_data := Mux((io.rs2_addr =/= 0.U), regfile(io.rs2_addr), 0.U)
+   io.dm_rdata := Mux((io.dm_addr =/= 0.U), regfile(io.dm_addr), 0.U)
        
 }
 }
