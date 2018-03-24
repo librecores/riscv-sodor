@@ -31,12 +31,10 @@ object DMConsts{
 }
 
 
-class DMIReq(addrBits : Int) extends Bundle {
+class DMIReq(val addrBits : Int) extends Bundle {
   val op   = Output(UInt(DMConsts.dmiOpSize.W))
   val addr = Output(UInt(addrBits.W))
   val data = Output(UInt(DMConsts.dmiDataSize.W))
-
-  override def cloneType = new DMIReq(addrBits).asInstanceOf[this.type]
 }
 
 /** Structure to define the contents of a Debug Bus Response
@@ -51,7 +49,7 @@ class DMIResp() extends Bundle {
   *  DebugModule is the consumer of this interface.
   *  Therefore it has the 'flipped' version of this.
   */
-class DMIIO(implicit p: Parameters) extends Bundle {
+class DMIIO(implicit val p: Parameters) extends Bundle {
   val req = new  DecoupledIO(new DMIReq(DMConsts.nDMIAddrSize))
   val resp = Flipped(new DecoupledIO(new DMIResp))
 }
@@ -82,7 +80,7 @@ class SimDTM(implicit p: Parameters) extends BlackBox {
   }
 }
 
-class DebugDPath(implicit p: Parameters) extends Bundle
+class DebugDPath(implicit val p: Parameters) extends Bundle
 {
   // REG access
   val addr = Output(UInt(5.W))
@@ -92,12 +90,12 @@ class DebugDPath(implicit p: Parameters) extends Bundle
   val resetpc = Output(Bool())
 }
 
-class DebugCPath(implicit p: Parameters) extends Bundle
+class DebugCPath(implicit val p: Parameters) extends Bundle
 {
   val halt = Output(Bool())
 }
 
-class DebugIo(implicit p: Parameters) extends Bundle
+class DebugIo(implicit val p: Parameters) extends Bundle
 {
   val dmi = Flipped(new DMIIO())
   val ddpath = new DebugDPath()
@@ -110,7 +108,7 @@ class DebugModule(implicit p: Parameters) extends Module {
   val io = IO(new DebugIo())
   val xlen = p(xprlen)
   // Following initializations are incase no "when" conditions are true
-  io.debugmem.req.bits := new MemReq(p(xprlen)).fromBits(0.U)
+  io.debugmem.req.bits := 0.U.asTypeOf(new MemReq(xlen))
   io.debugmem.req.bits.typ := MT_W
   io.debugmem.req.valid := false.B
   io.dmi.resp.bits.resp := DMConsts.dmi_RESP_SUCCESS
@@ -118,32 +116,32 @@ class DebugModule(implicit p: Parameters) extends Module {
   io.dmi.req.ready := true.B
   
   val dmstatusReset  = Wire(new DMSTATUSFields())
-  dmstatusReset := (new DMSTATUSFields()).fromBits(0.U)
+  dmstatusReset := 0.U.asTypeOf(new DMSTATUSFields())
   dmstatusReset.authenticated := true.B
   dmstatusReset.versionlo := "b10".U
-  val dmstatus = Reg(init = dmstatusReset)
+  val dmstatus = RegInit(dmstatusReset)
   val sbcsreset = Wire(new SBCSFields())
-  sbcsreset := (new SBCSFields()).fromBits(0.U)
+  sbcsreset := 0.U.asTypeOf(new SBCSFields())
   sbcsreset.sbaccess := 2.U
   sbcsreset.sbasize := 32.U
   sbcsreset.sbaccess32 := true.B
   sbcsreset.sbaccess16 := false.B
   sbcsreset.sbaccess8 := false.B
-  val sbcs = Reg(init = sbcsreset)
+  val sbcs = RegInit(sbcsreset)
   val abstractcsReset = Wire(new ABSTRACTCSFields())
-  abstractcsReset := (new ABSTRACTCSFields()).fromBits(0.U)
+  abstractcsReset := 0.U.asTypeOf(new ABSTRACTCSFields())
   abstractcsReset.datacount := DMConsts.nDataCount.U
   abstractcsReset.progsize := DMConsts.nProgBuf.U
+  val abstractcs = RegInit(abstractcsReset)
   val addr = RegEnable(io.dmi.req.bits.addr, io.dmi.req.fire()) // DMI Address
   val op = RegEnable(io.dmi.req.bits.op, io.dmi.req.fire()) // DMI Op
   val wdata = RegEnable(io.dmi.req.bits.data, io.dmi.req.fire()) // DMI Data
-  val abstractcs = Reg(init = abstractcsReset)
   val command = Reg(new ACCESS_REGISTERFields())
   val dmcontrol = Reg(new DMCONTROLFields())
   val data0 = Reg(UInt(xlen.W))  //arg0
   val sbaddr = Reg(UInt(xlen.W))
   val sbdata = Reg(UInt(xlen.W))
-  val resetcore = Reg(init = true.B)
+  val resetcore = RegInit(true.B)
 
   val read_map = collection.mutable.LinkedHashMap[Int,UInt](
     DMI_RegAddrs.DMI_ABSTRACTCS -> abstractcs.asUInt,
@@ -160,18 +158,18 @@ class DebugModule(implicit p: Parameters) extends Module {
     DMI_RegAddrs.DMI_SBADDRESS0 -> sbaddr,
     DMI_RegAddrs.DMI_SBDATA0 -> sbdata)
   val decoded_addr = read_map map { case (k, v) => k -> (addr === k) }
-  val memongoing = Reg(init = false.B)
+  val memongoing = RegInit(false.B)
   io.dmi.resp.bits.data := Mux1H(for ((k, v) <- read_map) yield decoded_addr(k) -> v)
   dmstatus.allhalted := dmcontrol.haltreq
   dmstatus.allrunning := dmcontrol.resumereq 
   io.dcpath.halt := dmstatus.allhalted && !dmstatus.allrunning
   when ((op === DMConsts.dmi_OP_WRITE) && io.dmi.resp.fire()){ 
     when(decoded_addr(DMI_RegAddrs.DMI_ABSTRACTCS)) { 
-      val tempabstractcs = new ABSTRACTCSFields().fromBits(wdata)
+      val tempabstractcs = wdata.asTypeOf(new ABSTRACTCSFields)
       abstractcs.cmderr := tempabstractcs.cmderr 
     }
     when(decoded_addr(DMI_RegAddrs.DMI_COMMAND)) { 
-      val tempcommand = new ACCESS_REGISTERFields().fromBits(wdata)
+      val tempcommand = wdata.asTypeOf(new ACCESS_REGISTERFields)
       when(tempcommand.size === 2.U){
         command.postexec := tempcommand.postexec
         command.regno := tempcommand.regno
@@ -183,7 +181,7 @@ class DebugModule(implicit p: Parameters) extends Module {
       }
     }
     when(decoded_addr(DMI_RegAddrs.DMI_DMCONTROL)) { 
-      val tempcontrol = new DMCONTROLFields().fromBits(wdata)
+      val tempcontrol = wdata.asTypeOf(new DMCONTROLFields)
       dmcontrol.haltreq := tempcontrol.haltreq
       dmcontrol.resumereq := tempcontrol.resumereq 
       dmcontrol.hartreset := tempcontrol.hartreset
@@ -197,7 +195,7 @@ class DebugModule(implicit p: Parameters) extends Module {
       }
     }
     when(decoded_addr(DMI_RegAddrs.DMI_SBCS)){
-      val tempsbcs = new SBCSFields().fromBits(wdata)
+      val tempsbcs = wdata.asTypeOf(new SBCSFields)
       sbcs.sbsingleread := tempsbcs.sbsingleread
       sbcs.sbaccess := tempsbcs.sbaccess
       sbcs.sbautoincrement := tempsbcs.sbautoincrement

@@ -21,7 +21,7 @@ import chisel3._
 import Common._
 import freechips.rocketchip.config._
 
-class CoreIo(implicit p: Parameters) extends Bundle 
+class CoreIo(implicit val p: Parameters) extends Bundle 
 {
   val imem = new MemPortIo(p(xprlen))
   val dmem = new MemPortIo(p(xprlen))

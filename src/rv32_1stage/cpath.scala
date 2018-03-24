@@ -27,14 +27,13 @@ class CtlToDatIo extends Bundle()
    val illegal = Output(Bool())
 }
 
-class CpathIo(implicit p: Parameters) extends Bundle() 
+class CpathIo(implicit val p: Parameters) extends Bundle() 
 {
    val dcpath = Flipped(new DebugCPath())
    val imem = new MemPortIo(p(xprlen))
    val dmem = new MemPortIo(p(xprlen))
    val dat  = Flipped(new DatToCtlIo())
    val ctl  = new CtlToDatIo()
-   override def cloneType = { new CpathIo().asInstanceOf[this.type] }
 }
 
                                                                                                                             
@@ -43,8 +42,8 @@ class CtlPath(implicit p: Parameters) extends Module
    val io = IO(new CpathIo())                                                                                            
    io.dmem.resp.ready := true.B
    io.imem.resp.ready := true.B
-   io.dmem.req.bits := new MemReq(p(xprlen)).fromBits(0.U)
-   io.imem.req.bits := new MemReq(p(xprlen)).fromBits(0.U)                                                                                                                    
+   io.dmem.req.bits := 0.U.asTypeOf(new MemReq(p(xprlen)))
+   io.imem.req.bits := 0.U.asTypeOf(new MemReq(p(xprlen)))                                                                                                                    
    val csignals =                                                                                                   
       ListLookup(io.dat.inst,                                                                                       
                              List(N, BR_N  , OP1_X  ,  OP2_X  , ALU_X   , WB_X   , REN_0, MEN_0, M_X  , MT_X,  CSR.N),
