@@ -34,22 +34,21 @@ class CtrlSignals extends Bundle()
    val illegal = Output(Bool())   
 }
 
-class CpathIo(implicit p: Parameters) extends Bundle() 
+class CpathIo(implicit val p: Parameters) extends Bundle() 
 {
    val dcpath = Flipped(new DebugCPath())
    val imem = Flipped(new FrontEndCpuIO())
    val dmem = new MemPortIo(p(xprlen))
    val dat  = Flipped(new DatToCtlIo())
    val ctl  = new CtrlSignals()
-   override def clone = { new CpathIo().asInstanceOf[this.type] }
 }
 
                                                                                                                             
-class CtlPath(implicit p: Parameters) extends Module
+class CtlPath(implicit val p: Parameters) extends Module
 {
    val io = IO(new CpathIo())
-   io.dmem.req.bits := new MemReq(p(xprlen)).fromBits(0.U)
-   io.imem.req.bits := new FrontEndReq(p(xprlen)).fromBits(0.U)
+   io.dmem.req.bits := 0.U.asTypeOf(new MemReq(p(xprlen)))
+   io.imem.req.bits := 0.U.asTypeOf(new FrontEndReq(p(xprlen)))
    io.dmem.req.valid := false.B
    io.imem.resp.ready := true.B
    io.dmem.resp.ready := true.B
@@ -148,7 +147,7 @@ class CtlPath(implicit p: Parameters) extends Module
                      PC_4
                      ))))))))))
                            
-   io.imem.req.valid := (!(ctrl_pc_sel === PC_4) && ctrl_valid) || (take_evec && Reg(next = ctrl_valid))
+   io.imem.req.valid := (!(ctrl_pc_sel === PC_4) && ctrl_valid) || (take_evec && RegNext(ctrl_valid))
 
    io.ctl.exe_kill   := take_evec 
    io.ctl.pc_sel     := ctrl_pc_sel
@@ -177,7 +176,7 @@ class CtlPath(implicit p: Parameters) extends Module
    //-------------------------------
    // Exception Handling
    io.ctl.illegal := !cs_inst_val && io.imem.resp.valid
-   take_evec        := Reg(next=io.ctl.illegal) || io.dat.csr_eret 
+   take_evec        := RegNext(io.ctl.illegal) || io.dat.csr_eret 
 
 
 }

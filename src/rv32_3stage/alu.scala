@@ -32,7 +32,7 @@ object ALU
 }
 import ALU._
 
-class ALUIO(implicit p: Parameters) extends Bundle {
+class ALUIO(implicit val p: Parameters) extends Bundle {
   val xlen = p(xprlen)
   val fn = Input(UInt(SZ_ALU_FN.W))
   val in2 = Input(UInt(xlen.W))
@@ -56,10 +56,10 @@ class ALU(implicit p: Parameters) extends Module
 
   require(p(xprlen) == 32)
   // SLL, SRL, SRA
-  val shamt = io.in2(4,0).toUInt
+  val shamt = io.in2(4,0).asUInt
   val shin_r = io.in1(31,0)
   val shin = Mux(io.fn === ALU_SRL  || io.fn === ALU_SRA, shin_r, Reverse(shin_r))
-  val shout_r = (Cat(isSub(io.fn) & shin(msb), shin).toSInt >> shamt)(msb,0)
+  val shout_r = (Cat(isSub(io.fn) & shin(msb), shin).asSInt >> shamt)(msb,0)
   val shout_l = Reverse(shout_r)
 
   val bitwise_logic =
@@ -75,6 +75,6 @@ class ALU(implicit p: Parameters) extends Module
     Mux(io.fn === ALU_SLL,                       shout_l,
         bitwise_logic))))
 
-  io.out := out_xpr_length(31,0).toUInt
+  io.out := out_xpr_length(31,0).asUInt
   io.adder_out := sum
 }

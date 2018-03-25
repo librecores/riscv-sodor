@@ -169,7 +169,7 @@ class SyncScratchPadMemory(num_core_ports: Int, num_bytes: Int = (1 << 21))(impl
    sync_data.io.clk := clock
    for (i <- 0 until num_core_ports)
    {
-      io.core_ports(i).resp.valid := Reg(next = io.core_ports(i).req.valid)
+      io.core_ports(i).resp.valid := RegNext(io.core_ports(i).req.valid)
       io.core_ports(i).req.ready := true.B // for now, no back pressure 
       sync_data.io.dataInstr(i).addr := io.core_ports(i).req.bits.addr
    }
@@ -205,7 +205,7 @@ class SyncScratchPadMemory(num_core_ports: Int, num_bytes: Int = (1 << 21))(impl
 
    // DEBUG PORT-------
    io.debug_port.req.ready := true.B // for now, no back pressure
-   io.debug_port.resp.valid := Reg(next = io.debug_port.req.valid)
+   io.debug_port.resp.valid := RegNext(io.debug_port.req.valid)
    sync_data.io.hr.addr := io.debug_port.req.bits.addr
    io.debug_port.resp.bits.data := sync_data.io.hr.data
    sync_data.io.hw.en := Mux((io.debug_port.req.bits.fcn === M_XWR) && io.debug_port.req.valid,true.B,false.B)

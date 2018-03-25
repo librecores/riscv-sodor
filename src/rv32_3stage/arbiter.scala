@@ -23,11 +23,12 @@ class SodorMemArbiter(implicit p: Parameters) extends Module
          val dmem = Flipped(new MemPortIo(xlen)) // load/store 
          val mem  = new MemPortIo(xlen)      // the single-ported memory
       }) 
+   io.mem.resp.ready := true.B
 
    //***************************
    val i1reg = Reg(UInt(xlen.W))
    val d1reg = Reg(UInt(xlen.W))
-   val nextdreq = Reg(init = true.B)
+   val nextdreq = RegInit(true.B)
    io.dmem.req.ready := true.B
    //d_fire : when true data request will be put on bus
    val d_fire = Wire(Bool()) 

@@ -8,7 +8,7 @@ import chisel3._
 import freechips.rocketchip.config._
 import Common._
 
-class CoreIo(implicit p: Parameters) extends Bundle 
+class CoreIo(implicit val p: Parameters) extends Bundle 
 {
   val ddpath = Flipped(new DebugDPath())
   val dcpath = Flipped(new DebugCPath())
@@ -16,7 +16,7 @@ class CoreIo(implicit p: Parameters) extends Bundle
   val dmem = new MemPortIo(p(xprlen))
 }
 
-class Core(implicit p: Parameters) extends Module
+class Core(implicit val p: Parameters) extends Module
 {
    val io = IO(new CoreIo())
 

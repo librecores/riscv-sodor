@@ -34,46 +34,37 @@ import Constants._
 import Common._
 
 
-class FrontEndIO(implicit p: Parameters) extends Bundle
+class FrontEndIO(implicit val p: Parameters) extends Bundle
 {
    val cpu  = new FrontEndCpuIO
    val imem = new MemPortIo(p(xprlen))
-  
-   override def cloneType = { new FrontEndIO().asInstanceOf[this.type] }
 }
 
  
-class FrontEndReq(xprlen: Int) extends Bundle
+class FrontEndReq(val xprlen: Int) extends Bundle
 {
    val pc   = UInt(xprlen.W)
-   
-   override def cloneType = { new FrontEndReq(xprlen).asInstanceOf[this.type] }
 }
  
 
-class FrontEndResp(xprlen: Int) extends Bundle
+class FrontEndResp(val xprlen: Int) extends Bundle
 {
    val pc   = UInt(xprlen.W) 
    val inst = UInt(xprlen.W)  // only support 32b insts for now
-   
-   override def cloneType = { new FrontEndResp(xprlen).asInstanceOf[this.type] }
 }
 
-class FrontEndDebug(xprlen: Int) extends Bundle
+class FrontEndDebug(val xprlen: Int) extends Bundle
 {
    val if_pc   = Output(UInt(xprlen.W))
    val if_inst = Output(UInt(xprlen.W))
-   override def cloneType = { new FrontEndDebug(xprlen).asInstanceOf[this.type] }
 }   
 
-class FrontEndCpuIO(implicit p: Parameters) extends Bundle
+class FrontEndCpuIO(implicit val p: Parameters) extends Bundle
 {
    val req = Flipped(new ValidIO(new FrontEndReq(p(xprlen))))
    val resp = new DecoupledIO(new FrontEndResp(p(xprlen)))
  
    val debug = new FrontEndDebug(p(xprlen))
- 
-   override def cloneType = { new FrontEndCpuIO().asInstanceOf[this.type] }
 }
 
 class FrontEnd(implicit p: Parameters) extends Module
@@ -84,22 +75,22 @@ class FrontEnd(implicit p: Parameters) extends Module
    // io.cpu.req.valid -> to signal if instruction stream needs to be redirected like incase of jumps/exceptions
    //**********************************
    // Pipeline State Registers
-   val if_reg_valid  = Reg(init = false.B)
-   val if_reg_pc     = Reg(init= START_ADDR - 4.U)
+   val if_reg_valid  = RegInit(false.B)
+   val if_reg_pc     = RegInit(START_ADDR - 4.U)
     
-   val exe_reg_valid = Reg(init = false.B)
+   val exe_reg_valid = RegInit(false.B)
    val exe_reg_pc    = Reg(UInt(p(xprlen).W))
    val exe_reg_inst  = Reg(UInt(p(xprlen).W))
 
    //**********************************
    // Next PC Stage (if we can call it that)
    val if_pc_next = Wire(UInt(p(xprlen).W))
-   val if_val_next = Wire(init = true.B) // for now, always true. But instruction
+   val if_val_next = WireInit(true.B) // for now, always true. But instruction
                                 // buffers, etc., could make that not the case.
    
-   val if_pc_plus4 = (if_reg_pc + 4.asUInt(p(xprlen).W))    
+   val if_pc_plus4 = if_reg_pc + 4.U               
    // io.cpu.req.valid used if memory replies always in next cycle like memory/SyncScratchpad           
-   val redirect = Reg(init = false.B)
+   val redirect = RegInit(false.B)
    val redirectpc = Reg(UInt(32.W))
 
    when (io.cpu.req.valid && !io.imem.resp.valid && !io.imem.req.fire())
@@ -136,7 +127,7 @@ class FrontEnd(implicit p: Parameters) extends Module
    // Inst Fetch/Return Stage 
    // Store instruction when CPU is accepting new instructions in pipeline 
    val instrreg = Reg(UInt(p(xprlen).W)) 
-   val respavail = Reg(init = false.B)
+   val respavail = RegInit(false.B)
    when (io.cpu.resp.ready)
    {
       when (!(io.cpu.req.valid || redirect)) {
