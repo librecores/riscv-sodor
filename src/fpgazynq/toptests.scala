@@ -13,17 +13,15 @@ class TopTests extends SteppedHWIOTester {
     poke(device_under_test.io.ps_axi_slave(0).aw.bits.size, 2L)
     poke(device_under_test.io.ps_axi_slave(0).aw.bits.id, 0L)
     poke(device_under_test.io.ps_axi_slave(0).w.bits.data, data)
-    poke(device_under_test.io.ps_axi_slave(0).b.ready, 1)
+    expect(device_under_test.io.ps_axi_slave(0).w.ready, true)
+    expect(device_under_test.io.ps_axi_slave(0).aw.ready, true)
   }
   def reqR(addr: BigInt) = {
+    expect(device_under_test.io.ps_axi_slave(0).ar.ready, 1)
     poke(device_under_test.io.ps_axi_slave(0).ar.valid, 1)
     poke(device_under_test.io.ps_axi_slave(0).ar.bits.addr, addr)
     poke(device_under_test.io.ps_axi_slave(0).ar.bits.len, 0L)
     poke(device_under_test.io.ps_axi_slave(0).ar.bits.size, 2L) 
-  }
-  def checkReqW = {
-    expect(device_under_test.io.ps_axi_slave(0).w.ready, true)
-    expect(device_under_test.io.ps_axi_slave(0).aw.ready, true)
   }
   def resetWReq = {
     poke(device_under_test.io.ps_axi_slave(0).aw.valid, 0)
@@ -34,14 +32,16 @@ class TopTests extends SteppedHWIOTester {
   }
   def checkWResp = {
     expect(device_under_test.io.ps_axi_slave(0).b.valid, true)
+    poke(device_under_test.io.ps_axi_slave(0).b.ready, 1)
   }
   def checkRResp(data: BigInt) = {
-    expect(device_under_test.io.ps_axi_slave(0).r.bits.data, data)
     expect(device_under_test.io.ps_axi_slave(0).r.valid, true)
+    expect(device_under_test.io.ps_axi_slave(0).r.bits.data, data)
   }  
   def memReadResp(addr: BigInt,data: BigInt,id: BigInt) = {
-    expect(device_under_test.io.mem_axi(0).ar.bits.addr , addr)
-    expect(device_under_test.io.mem_axi(0).ar.valid , true)
+    expect(device_under_test.io.mem_axi(0).ar.valid, true)
+    expect(device_under_test.io.mem_axi(0).ar.bits.id, id)
+    expect(device_under_test.io.mem_axi(0).ar.bits.addr, addr)
     poke(device_under_test.io.mem_axi(0).r.valid, 1)
     poke(device_under_test.io.mem_axi(0).r.bits.id, id)
     poke(device_under_test.io.mem_axi(0).r.bits.last, 1)
@@ -57,6 +57,7 @@ class TopTests extends SteppedHWIOTester {
     expect(device_under_test.io.mem_axi(0).aw.valid, true)
     expect(device_under_test.io.mem_axi(0).w.valid, true)
     expect(device_under_test.io.mem_axi(0).aw.bits.addr, addr)
+    expect(device_under_test.io.mem_axi(0).aw.bits.id, id)
     expect(device_under_test.io.mem_axi(0).w.bits.data, data)
     expect(device_under_test.io.mem_axi(0).b.ready, true)
     poke(device_under_test.io.mem_axi(0).b.valid, 1)
@@ -64,12 +65,11 @@ class TopTests extends SteppedHWIOTester {
   }
 
   def checkDCPath = {
-      reqW(0x40000110L,0x1L) // Pull sodor out of reset
+      reqW(0x40000110L,1) // Pull sodor out of reset
     step(1)
       resetWReq
-    step(1)
+    step(2)
       checkWResp
-    step(1)
       memReadResp(0x10000000L,0x00002097L,1) // auipc   ra, 0x2
     step(1)
       memResetReadResp
@@ -100,7 +100,7 @@ class TopTests extends SteppedHWIOTester {
       reqW(0x400000E4,0x10002000L) // System Bus Address
     step(1)
       resetWReq
-    step(1)
+    step(2)
       checkWResp
       reqW(0x400000F0,1) // System Bus Data
     step(1)
@@ -109,13 +109,13 @@ class TopTests extends SteppedHWIOTester {
       memWriteResp(0x10002000,1,0)
     step(1)
       memResetWriteResp
-    step(1)
+    step(2)
       checkWResp
     step(1)
       reqR(0x400000F0)
     step(1)
       resetRReq
-    step(1)
+    step(2)
       memReadResp(0x10002000L,0xaa,0)
     step(1)
       memResetReadResp
@@ -125,7 +125,7 @@ class TopTests extends SteppedHWIOTester {
       reqW(0x400000E4,0x10002000L)
     step(1)
       resetWReq
-    step(1)
+    step(2)
       checkWResp
       reqW(0x400000F0,1)
     step(1)
@@ -134,30 +134,14 @@ class TopTests extends SteppedHWIOTester {
       memWriteResp(0x10002000,1,0)
     step(1)
       memResetWriteResp
-    step(1)
-      checkWResp
-    step(1)
-      reqR(0x400000F0)
-    step(1)
-      resetRReq
-    step(1)
-      memReadResp(0x10002000L,0xaa,0)
-    step(1)
-      memResetReadResp
     step(2)
-      checkRResp(0xaa)
-    step(1)
-      reqW(0x400000E4,1)
-    step(1)
-      resetWReq
-    step(1)
       checkWResp
+    step(1)
       reqR(0x400000E0) // System Bus Access Control and Status
     step(1)
       resetRReq
     step(2)
       checkRResp(0x040404L)
-
   }
   def checkJump = {
 /*
@@ -181,9 +165,8 @@ class TopTests extends SteppedHWIOTester {
     reqW(0x40000110L,0x1L)
     step(1)
       resetWReq
-    step(1)
+    step(2)
       checkWResp
-    step(1)
       memReadResp(0x10000000L,0x400000b7L,1)  // lui ra,0x40000
     step(1)
       memResetReadResp

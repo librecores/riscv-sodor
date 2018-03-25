@@ -115,21 +115,21 @@ class DebugModule(implicit p: Parameters) extends Module {
   io.debugmem.req.bits.fcn := 0.U
   io.dmi.req.ready := true.B
   
-  val dmstatusReset  = Wire(new DMSTATUSFields())
-  dmstatusReset := 0.U.asTypeOf(new DMSTATUSFields())
+  val dmstatusReset  = Wire(new DMSTATUSFields)
+  dmstatusReset := 0.U.asTypeOf(new DMSTATUSFields)
   dmstatusReset.authenticated := true.B
   dmstatusReset.versionlo := "b10".U
   val dmstatus = RegInit(dmstatusReset)
-  val sbcsreset = Wire(new SBCSFields())
-  sbcsreset := 0.U.asTypeOf(new SBCSFields())
+  val sbcsreset = Wire(new SBCSFields)
+  sbcsreset := 0.U.asTypeOf(new SBCSFields)
   sbcsreset.sbaccess := 2.U
   sbcsreset.sbasize := 32.U
   sbcsreset.sbaccess32 := true.B
   sbcsreset.sbaccess16 := false.B
   sbcsreset.sbaccess8 := false.B
   val sbcs = RegInit(sbcsreset)
-  val abstractcsReset = Wire(new ABSTRACTCSFields())
-  abstractcsReset := 0.U.asTypeOf(new ABSTRACTCSFields())
+  val abstractcsReset = Wire(new ABSTRACTCSFields)
+  abstractcsReset := 0.U.asTypeOf(new ABSTRACTCSFields)
   abstractcsReset.datacount := DMConsts.nDataCount.U
   abstractcsReset.progsize := DMConsts.nProgBuf.U
   val abstractcs = RegInit(abstractcsReset)
@@ -228,21 +228,17 @@ class DebugModule(implicit p: Parameters) extends Module {
     io.debugmem.req.bits.data := wdata
     io.debugmem.req.bits.fcn :=  M_XWR
     io.debugmem.req.valid := !memongoing
-    when (sbcs.sbautoincrement && io.debugmem.resp.fire()) {  sbaddr := sbaddr + 4.U  }
   }
 
   when (decoded_addr(DMI_RegAddrs.DMI_SBDATA0) && (op === DMConsts.dmi_OP_READ)) {
     io.debugmem.req.bits.addr :=  sbaddr
     io.debugmem.req.bits.fcn := M_XRD
     io.debugmem.req.valid := !memongoing
-    // for async data readily available
-    // so capture it in reg
-    when (sbcs.sbautoincrement && io.debugmem.resp.fire()) {
-      sbdata := io.debugmem.resp.bits.data
-      sbaddr := sbaddr + 4.U
-    }
   }
 
+  when (io.debugmem.resp.fire()) {  sbdata := io.debugmem.resp.bits.data }
+
+  when (sbcs.sbautoincrement && io.debugmem.resp.fire()) {  sbaddr := sbaddr + 4.U  }
 
 
   io.resetcore := resetcore
