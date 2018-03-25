@@ -28,14 +28,13 @@ class CtlToDatIo extends Bundle()
    val illegal = Output(Bool())
 }
 
-class CpathIo(implicit p: Parameters) extends Bundle()
+class CpathIo(implicit val p: Parameters) extends Bundle()
 {
    val dcpath = Flipped(new DebugCPath())
    val imem = new MemPortIo(p(xprlen))
    val dmem = new MemPortIo(p(xprlen))
    val dat  = Flipped(new DatToCtlIo())
    val ctl  = new CtlToDatIo()
-   override def cloneType = { new CpathIo().asInstanceOf[this.type] }
 }
 
 

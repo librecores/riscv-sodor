@@ -13,17 +13,17 @@ import freechips.rocketchip.util._
 import freechips.rocketchip.devices.tilelink._
 import freechips.rocketchip.config._
 
-class Data() extends Bundle {
+class Data extends Bundle {
   val data = Output(UInt(8.W))
 }
 
-class FIFOtoDMI()(implicit p: Parameters) extends Module {
+class FIFOtoDMI(implicit p: Parameters) extends Module {
   val io = IO(new Bundle{
-    val dmi = new DMIIO()
-    val fifo_out = DecoupledIO(new Data())
-    val fifo_in = Flipped(DecoupledIO(new Data()))
+    val dmi = new DMIIO
+    val fifo_out = DecoupledIO(new Data)
+    val fifo_in = Flipped(DecoupledIO(new Data))
   })
-  io.dmi.req.bits := new DMIReq(DMConsts.nDMIAddrSize).fromBits(0.U)
+  io.dmi.req.bits := 0.U.asTypeOf(new DMIReq(DMConsts.nDMIAddrSize))
   io.dmi.resp.ready := 0.U
   io.dmi.req.valid := 0.U
   io.fifo_out.bits.data := 0.U
@@ -40,7 +40,7 @@ class FIFOtoDMI()(implicit p: Parameters) extends Module {
     */
 
   val ( s_idle :: s_rhdr   :: s_rdata3 :: s_rdata2 :: s_rdata1 :: s_rdata0 :: 
-        s_thdr :: s_tdata3 :: s_tdata2 :: s_tdata1 :: s_tdata0 :: s_tterm :: Nil) = Enum(UInt(),12)
+        s_thdr :: s_tdata3 :: s_tdata2 :: s_tdata1 :: s_tdata0 :: s_tterm :: Nil) = Enum(12)
 
   val fsm_state = RegInit(s_idle) 
   switch (fsm_state) {
@@ -163,8 +163,8 @@ class FIFOtoDMI()(implicit p: Parameters) extends Module {
 
 class SodorTileModule(outer: SodorTile)(implicit p: Parameters) extends LazyModuleImp(outer){
   val mem_axi4 = IO(HeterogeneousBag.fromNode(outer.mem_axi4.in))
-  val fifo_out = IO(DecoupledIO(new Data())) // WIDTH
-  val fifo_in = IO(Flipped(DecoupledIO(new Data()))) // WIDTH
+  val fifo_out = IO(DecoupledIO(new Data)) // WIDTH
+  val fifo_in = IO(Flipped(DecoupledIO(new Data))) // WIDTH
 
   val core   = Module(new Core())
   val fifotodmi   = Module(new FIFOtoDMI())

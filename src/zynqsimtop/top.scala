@@ -19,9 +19,9 @@ class DMItoAXI4(top: Top)(implicit p: Parameters) extends Module {
   })
   //Initialize IO
   io.success := false.B
-  io.ps_axi_slave(0).aw.bits := new AXI4BundleAW(new AXI4BundleParameters(32,32,12,12)).fromBits(0.U)
-  io.ps_axi_slave(0).ar.bits := new AXI4BundleAR(new AXI4BundleParameters(32,32,12,12)).fromBits(0.U)
-  io.ps_axi_slave(0).w.bits := new AXI4BundleW(new AXI4BundleParameters(32,32,12,12)).fromBits(0.U)
+  io.ps_axi_slave(0).aw.bits := 0.U.asTypeOf(new AXI4BundleAW(new AXI4BundleParameters(32,32,12,12)))
+  io.ps_axi_slave(0).ar.bits := 0.U.asTypeOf(new AXI4BundleAR(new AXI4BundleParameters(32,32,12,12)))
+  io.ps_axi_slave(0).w.bits := 0.U.asTypeOf(new AXI4BundleW(new AXI4BundleParameters(32,32,12,12)))
   io.ps_axi_slave(0).w.valid := false.B
   io.ps_axi_slave(0).aw.valid := false.B
   io.ps_axi_slave(0).ar.valid := false.B

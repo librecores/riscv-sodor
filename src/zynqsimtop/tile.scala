@@ -19,9 +19,8 @@ import freechips.rocketchip.amba.axi4._
 import freechips.rocketchip.util._
 import freechips.rocketchip.devices.tilelink._
 
-class TLToDMIBundle(val outer: TLToDMI)(implicit p: Parameters) extends Bundle(){
+class TLToDMIBundle(val outer: TLToDMI)(implicit val p: Parameters) extends Bundle(){
    val dmi = new DMIIO()
-   val tl_in = HeterogeneousBag.fromNode(outer.slaveDebug.in)
 }
 
 class TLToDMIModule(val outer: TLToDMI)(implicit p: Parameters) extends LazyModuleImp(outer){

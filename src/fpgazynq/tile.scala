@@ -12,12 +12,11 @@ import freechips.rocketchip.util._
 import freechips.rocketchip.devices.tilelink._
 import freechips.rocketchip.config._
 
-class TLToDMIBundle(val outer: TLToDMI)(implicit p: Parameters) extends Bundle(){
+class TLToDMIBundle(val outer: TLToDMI)(implicit val p: Parameters) extends Bundle(){
    val dmi = new DMIIO()
-   val tl_in = HeterogeneousBag.fromNode(outer.slaveDebug.in)
 }
 
-class TLToDMIModule(val outer: TLToDMI)(implicit p: Parameters) extends LazyModuleImp(outer){
+class TLToDMIModule(outer: TLToDMI)(implicit p: Parameters) extends LazyModuleImp(outer){
    val io = IO(new TLToDMIBundle(outer))
    val (tl_in, edge_in) = outer.slaveDebug.in.head
    val areq = RegEnable(tl_in.a.bits, tl_in.a.fire())

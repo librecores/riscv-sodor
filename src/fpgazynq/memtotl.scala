@@ -18,7 +18,7 @@ class MemAccessToTL(num_core_ports: Int, num_bytes: Int = (1 << 21))(implicit p:
    lazy val module = new MemAccessToTLModule(this,num_core_ports)
 }
 
-class MemAccessToTLBundle(outer: MemAccessToTL,num_core_ports: Int)(implicit p: Parameters) extends Bundle(){
+class MemAccessToTLBundle(val outer: MemAccessToTL, val num_core_ports: Int)(implicit val p: Parameters) extends Bundle(){
    val core_ports = Vec(num_core_ports, Flipped(new MemPortIo(data_width = p(xprlen))) )
    val debug_port = Flipped(new MemPortIo(data_width = p(xprlen)))  
 }
@@ -59,7 +59,7 @@ class MemAccessToTLModule(outer: MemAccessToTL,num_core_ports: Int, num_bytes: I
    reg_typd := io.core_ports(DPORT).req.bits.typ
    wire_typd := io.core_ports(DPORT).req.bits.typ
    val req_addr_lo = io.core_ports(DPORT).req.bits.addr(1,0)
-   val reg_req_addr_lo = Reg(next = req_addr_lo)
+   val reg_req_addr_lo = RegNext(req_addr_lo)
    val resp_datai = tl_data.d.bits.data >> (reg_req_addr_lo << 3.U)
    val req_wdata = io.core_ports(DPORT).req.bits.data
 
@@ -88,7 +88,7 @@ class MemAccessToTLModule(outer: MemAccessToTL,num_core_ports: Int, num_bytes: I
    
    // DEBUG PORT-------
    io.debug_port.req.ready := tl_debug.a.ready 
-   io.debug_port.resp.valid := tl_debug.d.valid 
+   io.debug_port.resp.valid := tl_debug.d.valid
    tl_debug.a.valid := io.debug_port.req.valid
    tl_debug.d.ready := io.debug_port.resp.ready
    tl_debug.a.bits.address := (io.debug_port.req.bits.addr & "h1FFFFF".U) | p(ExtMem).base.U
