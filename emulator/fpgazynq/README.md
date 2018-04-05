@@ -1,4 +1,10 @@
 To build the bitstream refer to [README](fpga/README.md)
+Open xsct console 
+```tcl
+$ xsct 
+xsct% hsi::open_hw_design hw_description.hdf
+xsct% hsi::get_hw_files ps7_init.tcl
+```
 Open xsdb console
 ```bash
 $ xsdb
@@ -19,7 +25,7 @@ $ make dtmxsdb
 # sample to show how to use dtmxsdb
 # +p is the port number that xsdb will print
 # after starting the xsdbserver
-$ ./dtmxsdb +verbose +p<PORT> +loadmem=<RISC-V ELF>
+$ ./dtmxsdb +verbose +p<PORT> +loadmem=<RISC-V_ELF>
 ```
 To try the automated tests 
 ```bash

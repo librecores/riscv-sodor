@@ -48,7 +48,7 @@ cd riscv-sodor
 git checkout tilelink2_fpga
 git submodule update --init --recursive -- riscv-tests riscv-fesvr 
 git submodule update --init -- rocket-chip #shallow clone only
-cd rocket-chip && git submodule update --init -- hardfloat && cd ..
+git -C rocket-chip submodule update --init -- hardfloat
 ```
 
 Directory Structure

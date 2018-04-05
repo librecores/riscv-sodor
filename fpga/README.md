@@ -5,6 +5,12 @@ You need to make sure the board files for pynq z1 are present. They can be downl
 make pynq_bitstream
 #builds pynq_ip_repo containing sodor as a packaged ip
 ```
+Open xsct console 
+```bash
+$ xsct 
+xsct% hsi::open_hw_design hw_description.hdf
+xsct% hsi::get_hw_files ps7_init.tcl
+```
 Open xsdb console
 ```bash
 connect
@@ -17,10 +23,10 @@ source sample.tcl
 ```
 
 To compile an assembly file using the following 
-`riscv32-unknown-elf-gcc -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -Ttext 0x10000000 temp.S `
+`riscv64-unknown-elf-gcc -march=rv32i -mabi=ilp32 -static -mcmodel=medany -fvisibility=hidden -nostdlib -nostartfiles -Ttext 0x10000000 temp.S `
 
 To verify disassemble using 
-`riscv32-unknown-elf-objdump -d a.out`
+`riscv64-unknown-elf-objdump -d a.out`
 
 ## ARTY A7-35T
 Board files need to be present which can be found here https://github.com/Digilent/vivado-boards 
