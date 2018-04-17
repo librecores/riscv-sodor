@@ -137,10 +137,8 @@ global_asm_tests += \
 	rv32ui-p-xori \
 	rv32mi-p-sbreak \
 	rv32mi-p-scall \
-
-# need to add support for ma exceptions
-#	rv32mi-p-ma_addr \
 	rv32mi-p-ma_fetch \
+	rv32mi-p-ma_addr \
 
 # Globally installed benchmarks
 global_bmarkdir = $(srcDir)/riscv-tests/benchmarks

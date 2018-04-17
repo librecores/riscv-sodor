@@ -20,7 +20,7 @@ class DatToCtlIo(implicit val conf: SodorConfiguration) extends Bundle()
    val br_eq  = Output(Bool())
    val br_lt  = Output(Bool())
    val br_ltu = Output(Bool())
-   val csr_eret = Output(Bool())
+   val ma_ls = Output(Bool())
 }
 
 class DpathIo(implicit val conf: SodorConfiguration) extends Bundle() 
@@ -43,21 +43,20 @@ class DatPath(implicit conf: SodorConfiguration) extends Module
    val jmp_target       = Wire(UInt(32.W))
    val jump_reg_target  = Wire(UInt(32.W))
    val exception_target = Wire(UInt(32.W))
+   val xcpt             = Wire(Bool())
  
    // PC Register
    pc_next := MuxCase(pc_plus4, Array(
-                  (io.ctl.pc_sel === PC_4)   -> pc_plus4,
                   (io.ctl.pc_sel === PC_BR)  -> br_target,
                   (io.ctl.pc_sel === PC_J )  -> jmp_target,
-                  (io.ctl.pc_sel === PC_JR)  -> jump_reg_target,
-                  (io.ctl.pc_sel === PC_EXC) -> exception_target
+                  (io.ctl.pc_sel === PC_JR)  -> jump_reg_target
                   ))
 
    val pc_reg = RegInit(START_ADDR) 
 
    when (!io.ctl.stall) 
    {
-      pc_reg := pc_next
+      pc_reg := Mux(xcpt, exception_target, pc_next)
    }
 
    pc_plus4 := (pc_reg + 4.asUInt(conf.xprlen.W))               
@@ -78,7 +77,7 @@ class DatPath(implicit conf: SodorConfiguration) extends Module
    // Register File
    val regfile = Mem(32, UInt(conf.xprlen.W))
 
-   when (io.ctl.rf_wen && (wb_addr =/= 0.U) && !io.ctl.illegal)
+   when (io.ctl.rf_wen && !xcpt)
    {
       regfile(wb_addr) := wb_data
    }
@@ -102,7 +101,6 @@ class DatPath(implicit conf: SodorConfiguration) extends Module
    val imm_u_sext = Cat(imm_u, Fill(12,0.U))
    val imm_j_sext = Cat(Fill(11,imm_j(19)), imm_j, 0.U)
 
-
    val alu_op1 = MuxCase(0.U, Array(
                (io.ctl.op1_sel === OP1_RS1) -> rs1_data,
                (io.ctl.op1_sel === OP1_IMU) -> imm_u_sext,
@@ -115,8 +113,6 @@ class DatPath(implicit conf: SodorConfiguration) extends Module
                (io.ctl.op2_sel === OP2_IMI) -> imm_i_sext,
                (io.ctl.op2_sel === OP2_IMS) -> imm_s_sext
                )).asUInt
-
-
 
    // ALU
    val alu_out   = Wire(UInt(conf.xprlen.W))
@@ -145,16 +141,14 @@ class DatPath(implicit conf: SodorConfiguration) extends Module
    // Control Status Registers
    val csr = Module(new CSRFile())
    csr.io := DontCare
-   csr.io.decode.csr := inst(CSR_ADDR_MSB,CSR_ADDR_LSB)
+   csr.io.rw.addr := inst(CSR_ADDR_MSB,CSR_ADDR_LSB)
    csr.io.rw.cmd   := io.ctl.csr_cmd 
    csr.io.rw.wdata := alu_out
 
    csr.io.retire    := !io.ctl.stall
-   csr.io.illegal := io.ctl.illegal 
+   csr.io.illegal   := io.ctl.illegal 
    csr.io.pc        := pc_reg
    exception_target := csr.io.evec
-
-   io.dat.csr_eret := csr.io.eret
 
    // Add your own uarch counters here!
    csr.io.counters.foreach(_.inc := false.B)
@@ -167,6 +161,9 @@ class DatPath(implicit conf: SodorConfiguration) extends Module
                   (io.ctl.wb_sel === WB_CSR) -> csr.io.rw.rdata
                   ))
                                   
+   // datapath to data memory outputs
+   io.dmem.req.bits.addr  := alu_out
+   io.dmem.req.bits.data := rs2_data.asUInt 
 
    // datapath to controlpath outputs
    io.dat.inst   := inst
@@ -174,11 +171,31 @@ class DatPath(implicit conf: SodorConfiguration) extends Module
    io.dat.br_lt  := (rs1_data.asSInt < rs2_data.asSInt) 
    io.dat.br_ltu := (rs1_data.asUInt < rs2_data.asUInt)
    
-   
-   // datapath to data memory outputs
-   io.dmem.req.bits.addr  := alu_out
-   io.dmem.req.bits.data := rs2_data.asUInt 
-   
+   val ma_typ           = Wire(Bool())
+   val ma_load          = Wire(Bool())
+   val ma_str           = Wire(Bool())
+   val ma_instr         = Wire(Bool())
+   io.dat.ma_ls  := ma_load || ma_str
+   ma_typ        := MuxLookup(io.ctl.mem_typ(1,0) ,false.B, 
+                     Array( 2.U -> alu_out(0), 3.U -> alu_out(1,0).orR ))
+   ma_load      := io.ctl.mem_en && !io.ctl.mem_fcn && ma_typ
+   ma_str       := io.ctl.mem_en && io.ctl.mem_fcn && ma_typ
+   ma_instr     := pc_next(1,0).orR
+
+   csr.io.xcpt    := ma_load || ma_str || ma_instr || io.ctl.illegal
+   csr.io.cause   := MuxCase(0.U, Array(
+                     ma_instr -> Causes.misaligned_fetch.U,
+                     io.ctl.illegal -> Causes.illegal_instruction.U,
+                     ma_load -> Causes.misaligned_load.U,
+                     ma_str  -> Causes.misaligned_store.U ))
+   csr.io.tval    := MuxCase(0.U, Array(
+                     ma_instr -> pc_next,
+                     io.ctl.illegal -> inst,
+                     ma_load -> alu_out,
+                     ma_str  -> alu_out ))
+   xcpt := ma_instr  || ma_load || ma_str || io.ctl.illegal || csr.io.eret   
+
+
    // Printout
    // pass output through the spike-dasm binary (found in riscv-tools) to turn
    // the DASM(%x) into a disassembly string.
