@@ -166,7 +166,7 @@ class DatPath(implicit val conf: SodorConfiguration) extends Module
    // Branch/Jump Target Calculation
    val imm_brjmp = Mux(io.ctl.brjmp_sel, imm_j_sext, imm_b_sext)
    exe_brjmp_target := exe_pc + imm_brjmp
-   exe_jump_reg_target := alu.io.adder_out 
+   exe_jump_reg_target := Cat(exe_alu_out(31,1), 0.U(1.W))  
 
 
    // datapath to controlpath outputs

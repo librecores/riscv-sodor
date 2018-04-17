@@ -108,11 +108,13 @@ class DatPath(implicit val conf: SodorConfiguration) extends Module
    //32 x-registers, 1 pc-register
    val regfile = Reg(Vec(33, UInt(32.W)))
 
-   when (io.ctl.en_reg & io.ctl.reg_wr & reg_addr =/= 0.U)
+   when (io.ctl.en_reg & io.ctl.reg_wr & reg_addr(4,0) =/= 0.U)
    {
       regfile(reg_addr) := bus
+   } .elsewhen (io.ctl.en_reg & io.ctl.reg_wr & reg_addr(5) === 1.U) {
+      regfile(reg_addr) := Cat(bus(31,1),0.U(1.W)) // PC
    }
-  
+
    // This is a hack to make it look like the CSRFile is part of the regfile
    reg_rdata :=  MuxCase(regfile(reg_addr), Array(
                     (io.ctl.reg_sel === RS_CR) -> csr_rdata,

@@ -309,7 +309,7 @@ class DatPath(implicit val conf: SodorConfiguration) extends Module
    // Branch/Jump Target Calculation
    val brjmp_offset    = exe_reg_op2_data
    exe_brjmp_target    := exe_reg_pc + brjmp_offset
-   exe_jump_reg_target := exe_adder_out
+   exe_jump_reg_target := Cat(exe_alu_out(31,1), 0.U(1.W))
 
    val exe_pc_plus4    = (exe_reg_pc + 4.U)(conf.xprlen-1,0)
 

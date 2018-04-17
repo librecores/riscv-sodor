@@ -37,7 +37,6 @@ class ALUIO(implicit val conf: SodorConfiguration) extends Bundle {
   val in2 = Input(UInt(conf.xprlen.W))
   val in1 = Input(UInt(conf.xprlen.W))
   val out = Output(UInt(conf.xprlen.W))
-  val adder_out = Output(UInt(conf.xprlen.W))
 }
 
 class ALU(implicit val conf: SodorConfiguration) extends Module
@@ -75,5 +74,4 @@ class ALU(implicit val conf: SodorConfiguration) extends Module
         bitwise_logic))))
 
   io.out := out_xpr_length(31,0).asUInt
-  io.adder_out := sum
 }

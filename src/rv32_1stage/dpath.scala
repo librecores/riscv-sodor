@@ -140,7 +140,7 @@ class DatPath(implicit conf: SodorConfiguration) extends Module
    // Branch/Jump Target Calculation
    br_target       := pc_reg + imm_b_sext
    jmp_target      := pc_reg + imm_j_sext
-   jump_reg_target := (rs1_data.asUInt + imm_i_sext.asUInt)
+   jump_reg_target := Cat(alu_out(31,1), 0.U(1.W)) 
 
    // Control Status Registers
    val csr = Module(new CSRFile())

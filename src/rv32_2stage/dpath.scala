@@ -163,7 +163,7 @@ class DatPath(implicit conf: SodorConfiguration) extends Module
    // Branch/Jump Target Calculation
    exe_br_target       := exe_reg_pc + imm_b_sext
    exe_jmp_target      := exe_reg_pc + imm_j_sext
-   exe_jump_reg_target := (exe_rs1_data.asUInt + imm_i_sext.asUInt)
+   exe_jump_reg_target := Cat(exe_alu_out(31,1), 0.U(1.W))
    
 
    // Control Status Registers
