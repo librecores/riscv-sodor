@@ -3,6 +3,7 @@ pipeline {
     stages {
       stage("Test") {
         steps {
+		sh "git -C riscv-tests checkout isa/Makefile benchmarks/Makefile"
           	sh "git submodule update --init --recursive -- riscv-fesvr riscv-tests"
 		sh "git submodule update --init -- rocket-chip "
 		sh "git -C rocket-chip submodule update --init -- hardfloat "
