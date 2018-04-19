@@ -28,7 +28,7 @@ class DatToCtlIo(implicit val conf: SodorConfiguration) extends Bundle()
    val br_eq  = Output(Bool())
    val br_lt  = Output(Bool())
    val br_ltu = Output(Bool())
-   val csr_eret = Output(Bool())
+   val xcpt = Output(Bool())
 }
 
 class DpathIo(implicit val conf: SodorConfiguration) extends Bundle() 
@@ -44,6 +44,7 @@ class DatPath(implicit val conf: SodorConfiguration) extends Module
    val io = IO(new DpathIo())
    io := DontCare
 
+   val xcpt = Wire(Bool())
 
    //**********************************
    // Pipeline State Registers
@@ -103,13 +104,11 @@ class DatPath(implicit val conf: SodorConfiguration) extends Module
       wb_hazard_stall := ((wb_reg_wbaddr === exe_rs1_addr) && (exe_rs1_addr =/= 0.U) && wb_reg_ctrl.rf_wen && !wb_reg_ctrl.bypassable) || 
                          ((wb_reg_wbaddr === exe_rs2_addr) && (exe_rs2_addr =/= 0.U) && wb_reg_ctrl.rf_wen && !wb_reg_ctrl.bypassable)  
    }
-   
-
 
    // Register File
    val regfile = Mem(32,UInt(conf.xprlen.W))
 
-   when (wb_reg_ctrl.rf_wen && (wb_reg_wbaddr =/= 0.U))
+   when (wb_reg_ctrl.rf_wen && !xcpt)
    {
       regfile(wb_reg_wbaddr) := wb_wbdata
    }
@@ -152,8 +151,7 @@ class DatPath(implicit val conf: SodorConfiguration) extends Module
                      Mux(io.ctl.op2_sel === OP2_PC,  exe_pc,
                      Mux(io.ctl.op2_sel === OP2_IMS, imm_s_sext,
                                                      exe_rs2_data))).asUInt
-  
-        
+
    // ALU
    val alu = Module(new ALU())
 
@@ -167,15 +165,18 @@ class DatPath(implicit val conf: SodorConfiguration) extends Module
    val imm_brjmp = Mux(io.ctl.brjmp_sel, imm_j_sext, imm_b_sext)
    exe_brjmp_target := exe_pc + imm_brjmp
    exe_jump_reg_target := Cat(exe_alu_out(31,1), 0.U(1.W))  
-
+   // s0_* -> exe 
+   // s1_* -> wb
+   val s1_ma_npc = RegNext(Mux(io.ctl.pc_sel(1,0).orR, Mux(io.ctl.pc_sel === PC_JR, exe_jump_reg_target, exe_brjmp_target), 0.U))
 
    // datapath to controlpath outputs
    io.dat.br_eq  := (exe_rs1_data === exe_rs2_data)
    io.dat.br_lt  := (exe_rs1_data.asSInt < exe_rs2_data.asSInt) 
    io.dat.br_ltu := (exe_rs1_data.asUInt < exe_rs2_data.asUInt)
     
-   // datapath to data memory outputs
-   io.dmem.req.valid     := io.ctl.dmem_val
+   // misaligned load/store address exception
+   val s0_ma_ls_xcpt    = Wire(Bool())
+   io.dmem.req.valid     := !s0_ma_ls_xcpt 
    if(NUM_MEMORY_PORTS == 1) 
       io.dmem.req.bits.fcn  := io.ctl.dmem_fcn & exe_valid & !((wb_reg_wbaddr === exe_rs1_addr) && (exe_rs1_addr =/= 0.U) && wb_reg_ctrl.rf_wen && !wb_reg_ctrl.bypassable)
    else   
@@ -183,7 +184,10 @@ class DatPath(implicit val conf: SodorConfiguration) extends Module
    io.dmem.req.bits.typ  := io.ctl.dmem_typ
    io.dmem.req.bits.addr := exe_alu_out
    io.dmem.req.bits.data := exe_rs2_data
-                                                   
+   s0_ma_ls_xcpt         := io.ctl.dmem_val && MuxLookup(io.ctl.dmem_typ(1,0) ,false.B, 
+                     Array( 2.U -> exe_alu_out(0), 3.U -> exe_alu_out(1,0).orR ))
+   val s1_ma_ls_xcpt    = RegInit(false.B)
+   s1_ma_ls_xcpt         := s0_ma_ls_xcpt
 
    // execute to wb registers
    wb_reg_ctrl :=  io.ctl
@@ -201,21 +205,40 @@ class DatPath(implicit val conf: SodorConfiguration) extends Module
                                    
    //**********************************
    // Writeback Stage
-   wb_reg_valid := exe_valid && !wb_hazard_stall 
+   wb_reg_valid := exe_valid && !wb_hazard_stall
     
    // Control Status Registers
    val csr = Module(new CSRFile())
    csr.io := DontCare
-   csr.io.decode.csr   := wb_reg_csr_addr
+   csr.io.rw.addr   := wb_reg_csr_addr
    csr.io.rw.wdata  := wb_reg_alu
    csr.io.rw.cmd    := wb_reg_ctrl.csr_cmd 
    val wb_csr_out    = csr.io.rw.rdata
 
    csr.io.retire    := wb_reg_valid
-   csr.io.illegal := RegNext(io.ctl.illegal)
    csr.io.pc        := exe_pc - 4.U
    exception_target := csr.io.evec
-   io.dat.csr_eret := csr.io.eret
+
+
+   val ma_load          = Wire(Bool())
+   val ma_str           = Wire(Bool())
+   val ma_jump         = Wire(Bool())
+   ma_jump      := s1_ma_npc(1,0).orR
+   ma_load      := !wb_reg_ctrl.dmem_fcn.toBool && s1_ma_ls_xcpt
+   ma_str       := wb_reg_ctrl.dmem_fcn.toBool && s1_ma_ls_xcpt
+   csr.io.xcpt    := ma_load || ma_str || ma_jump || wb_reg_ctrl.illegal
+   csr.io.cause   := MuxCase(0.U, Array(
+                     ma_jump -> Causes.misaligned_fetch.U,
+                     wb_reg_ctrl.illegal -> Causes.illegal_instruction.U,
+                     ma_load -> Causes.misaligned_load.U,
+                     ma_str  -> Causes.misaligned_store.U ))
+   csr.io.tval    := MuxCase(0.U, Array(
+                     ma_jump -> s1_ma_npc,
+                     wb_reg_ctrl.illegal -> RegNext(exe_inst),
+                     ma_load -> wb_reg_alu,
+                     ma_str  -> wb_reg_alu ))
+   xcpt := (ma_jump  || ma_load || ma_str || wb_reg_ctrl.illegal || csr.io.eret) && wb_reg_valid
+   io.dat.xcpt := xcpt
 
    // Add your own uarch counters here!
    csr.io.counters.foreach(_.inc := false.B)

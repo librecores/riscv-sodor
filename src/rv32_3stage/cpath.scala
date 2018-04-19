@@ -144,8 +144,9 @@ class CtlPath(implicit val conf: SodorConfiguration) extends Module
                      Mux(cs_br_type === BR_JR ,  PC_JR,
                      PC_4
                      ))))))))))
-                           
-   io.imem.req.valid := !(ctrl_pc_sel === PC_4) && ctrl_valid 
+   // take_evec is signaled by wb stage so should not depend on whether 
+   // instr in exe is valid                         
+   io.imem.req.valid := (!(ctrl_pc_sel === PC_4) && ctrl_valid) || take_evec  
 
    io.ctl.exe_kill   := take_evec
    io.ctl.pc_sel     := ctrl_pc_sel
@@ -174,7 +175,7 @@ class CtlPath(implicit val conf: SodorConfiguration) extends Module
    //-------------------------------
    // Exception Handling
    io.ctl.illegal := !cs_inst_val && io.imem.resp.valid
-   take_evec        := RegNext(io.ctl.illegal) || io.dat.csr_eret 
+   take_evec        := io.dat.xcpt 
 
 
 }
