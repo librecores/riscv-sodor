@@ -49,6 +49,7 @@ pipeline {
 	        sh "sed '/RISCV_GCC_OPTS/s/\$/ -march=rv32i -mabi=ilp32/' riscv-tests/benchmarks/Makefile > temporary"
           	sh "mv temporary riscv-tests/benchmarks/Makefile"
 	        sh "make -C riscv-tests/benchmarks dhrystone.riscv median.riscv multiply.riscv qsort.riscv rsort.riscv towers.riscv vvadd.riscv"
+		sh "make clean"
           	sh "make run-emulator"
         }
       }
