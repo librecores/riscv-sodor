@@ -38,9 +38,6 @@ class CtlToDatIo extends Bundle()
    val csr_cmd    = Output(UInt(CSR.SZ))
    val fencei     = Output(Bool())    // pipeline is executing a fencei
 
-   val pipeline_kill = Output(Bool()) // an exception occurred (detected in mem stage).
-                                    // Kill the entire pipeline disregard stalls
-                                    // and kill if,dec,exe stages. 
    val mem_illegal = Output(Bool()) // tell the CSR that illegal instruction was encountered
 }
 
@@ -130,7 +127,7 @@ class CtlPath(implicit conf: SodorConfiguration) extends Module
 
 
    // Branch Logic
-   val ctrl_exe_pc_sel = Mux(io.ctl.pipeline_kill         , PC_EXC,
+   val ctrl_exe_pc_sel = Mux(io.dat.xcpt                  , PC_EXC,
                          Mux(io.dat.exe_br_type === BR_N  , PC_4,
                          Mux(io.dat.exe_br_type === BR_NE , Mux(!io.dat.exe_br_eq,  PC_BRJMP, PC_4),
                          Mux(io.dat.exe_br_type === BR_EQ , Mux( io.dat.exe_br_eq,  PC_BRJMP, PC_4),
@@ -148,8 +145,6 @@ class CtlPath(implicit conf: SodorConfiguration) extends Module
 
    // Exception Handling ---------------------
 
-   io.ctl.pipeline_kill := (io.dat.csr_eret || io.ctl.mem_illegal)
-   
    val dec_illegal = (!cs_val_inst && io.imem.resp.valid) //illegal instruction
  
    // Stall Signal Logic --------------------

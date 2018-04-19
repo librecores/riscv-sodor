@@ -27,7 +27,9 @@ class DatToCtlIo(implicit val conf: SodorConfiguration) extends Bundle()
 
    val mem_ctrl_dmem_val = Output(Bool())
 
-   val csr_eret = Output(Bool())
+   val xcpt = Output(Bool()) // an exception occurred (detected in mem stage).
+                                    // Kill the entire pipeline disregard stalls
+                                    // and kill if,dec,exe stages. 
 }
 
 class DpathIo(implicit val conf: SodorConfiguration) extends Bundle()
@@ -71,6 +73,7 @@ class DatPath(implicit val conf: SodorConfiguration) extends Module
    val exe_reg_ctrl_mem_fcn  = RegInit(M_X)
    val exe_reg_ctrl_mem_typ  = RegInit(MT_X)
    val exe_reg_ctrl_csr_cmd  = RegInit(CSR.N)
+   val exe_reg_ctrl_pc_sel   = Reg(UInt(2.W))
 
    // Memory State
    val mem_reg_pc            = Reg(UInt(conf.xprlen.W))
@@ -88,6 +91,7 @@ class DatPath(implicit val conf: SodorConfiguration) extends Module
    val mem_reg_ctrl_mem_typ  = RegInit(MT_X)
    val mem_reg_ctrl_wb_sel   = Reg(UInt())
    val mem_reg_ctrl_csr_cmd  = RegInit(CSR.N)
+   val jump_npc              = Reg(UInt(conf.xprlen.W))
 
    // Writeback State
    val wb_reg_wbaddr         = Reg(UInt())
@@ -101,8 +105,9 @@ class DatPath(implicit val conf: SodorConfiguration) extends Module
    val exe_brjmp_target    = Wire(UInt(32.W))
    val exe_jump_reg_target = Wire(UInt(32.W))
    val exception_target    = Wire(UInt(32.W))
+   val xcpt                = Wire(Bool())
 
-   when ((!io.ctl.dec_stall && !io.ctl.mem_stall) || io.ctl.pipeline_kill)
+   when ((!io.ctl.dec_stall && !io.ctl.mem_stall) || xcpt)
    {
       if_reg_pc := if_pc_next
    }
@@ -116,7 +121,7 @@ class DatPath(implicit val conf: SodorConfiguration) extends Module
 
    // for a fencei, refetch the if_pc (assuming no stall, no branch, and no exception)
    when (io.ctl.fencei && io.ctl.exe_pc_sel === PC_4 && 
-         !io.ctl.dec_stall && !io.ctl.mem_stall && !io.ctl.pipeline_kill)
+         !io.ctl.dec_stall && !io.ctl.mem_stall && !xcpt)
    {
       if_pc_next := if_reg_pc
    }
@@ -125,7 +130,7 @@ class DatPath(implicit val conf: SodorConfiguration) extends Module
    io.imem.req.bits.addr := if_reg_pc
    val if_inst = io.imem.resp.bits.data
 
-   when (io.ctl.pipeline_kill)
+   when (xcpt)
    {
       dec_reg_inst := BUBBLE
    }
@@ -187,8 +192,6 @@ class DatPath(implicit val conf: SodorConfiguration) extends Module
                (io.ctl.op2_sel === OP2_UJTYPE) -> imm_ujtype_sext
                )).asUInt
 
-
-
    // Bypass Muxes
    val exe_alu_out  = Wire(UInt(conf.xprlen.W))
    val mem_wbdata   = Wire(UInt(conf.xprlen.W))
@@ -232,7 +235,7 @@ class DatPath(implicit val conf: SodorConfiguration) extends Module
    }
 
 
-   when ((io.ctl.dec_stall && !io.ctl.mem_stall) || io.ctl.pipeline_kill)
+   when ((io.ctl.dec_stall && !io.ctl.mem_stall) || xcpt)
    {
       // (kill exe stage)
       // insert NOP (bubble) into Execute stage on front-end stall (e.g., hazard clearing)
@@ -256,6 +259,7 @@ class DatPath(implicit val conf: SodorConfiguration) extends Module
       exe_reg_ctrl_op2_sel  := io.ctl.op2_sel
       exe_reg_ctrl_alu_fun  := io.ctl.alu_fun
       exe_reg_ctrl_wb_sel   := io.ctl.wb_sel
+      exe_reg_ctrl_pc_sel   := io.ctl.exe_pc_sel
 
       when (io.ctl.dec_kill)
       {
@@ -313,15 +317,14 @@ class DatPath(implicit val conf: SodorConfiguration) extends Module
 
    val exe_pc_plus4    = (exe_reg_pc + 4.U)(conf.xprlen-1,0)
 
-   when (io.ctl.pipeline_kill)
+   when (xcpt)
    {
       mem_reg_pc            := BUBBLE
       mem_reg_ctrl_rf_wen   := false.B
       mem_reg_ctrl_mem_val  := false.B
       mem_reg_ctrl_csr_cmd  := false.B
-   }
-   .elsewhen (!io.ctl.mem_stall)
-   {
+      jump_npc              := 0.U
+   } .elsewhen (!io.ctl.mem_stall) {
       mem_reg_pc            := exe_reg_pc
       mem_reg_inst          := exe_reg_inst
       mem_reg_alu_out       := Mux((exe_reg_ctrl_wb_sel === WB_PC4), exe_pc_plus4, exe_alu_out)
@@ -337,6 +340,8 @@ class DatPath(implicit val conf: SodorConfiguration) extends Module
       mem_reg_ctrl_mem_typ  := exe_reg_ctrl_mem_typ
       mem_reg_ctrl_wb_sel   := exe_reg_ctrl_wb_sel
       mem_reg_ctrl_csr_cmd  := exe_reg_ctrl_csr_cmd
+      jump_npc              :=  Mux(io.ctl.exe_pc_sel === PC_BRJMP, exe_brjmp_target,
+                                Mux(io.ctl.exe_pc_sel === PC_JALR, exe_jump_reg_target, 0.U))
    }
 
    //**********************************
@@ -344,16 +349,34 @@ class DatPath(implicit val conf: SodorConfiguration) extends Module
    // Control Status Registers
    val csr = Module(new CSRFile())
    csr.io := DontCare
-   csr.io.decode.csr  := mem_reg_inst(CSR_ADDR_MSB,CSR_ADDR_LSB)
+   csr.io.rw.addr  := mem_reg_inst(CSR_ADDR_MSB,CSR_ADDR_LSB)
    csr.io.rw.wdata := mem_reg_alu_out
    csr.io.rw.cmd   := mem_reg_ctrl_csr_cmd
 
    csr.io.retire    := !(RegNext(mem_reg_inst) === BUBBLE) // can be made better
-   csr.io.illegal := io.ctl.mem_illegal
    csr.io.pc        := mem_reg_pc
    exception_target := csr.io.evec
 
-   io.dat.csr_eret := csr.io.eret
+   val ma_load          = Wire(Bool())
+   val ma_str           = Wire(Bool())
+   val ma_jump         = Wire(Bool())
+   val ls_addr_ma_valid  = MuxLookup(mem_reg_ctrl_mem_typ(1,0) ,false.B, Array( 2.U -> mem_reg_alu_out(0), 3.U -> mem_reg_alu_out(1,0).orR ))
+   ma_jump      := jump_npc(1,0).orR
+   ma_load      := !mem_reg_ctrl_mem_fcn.toBool && mem_reg_ctrl_mem_val && ls_addr_ma_valid
+   ma_str       := mem_reg_ctrl_mem_fcn.toBool && mem_reg_ctrl_mem_val && ls_addr_ma_valid
+   csr.io.xcpt  := ma_load || ma_str || ma_jump || io.ctl.mem_illegal
+   csr.io.cause := MuxCase(0.U, Array(
+                     ma_jump -> Causes.misaligned_fetch.U,
+                     io.ctl.mem_illegal -> Causes.illegal_instruction.U,
+                     ma_load -> Causes.misaligned_load.U,
+                     ma_str  -> Causes.misaligned_store.U ))
+   csr.io.tval  := MuxCase(0.U, Array(
+                     ma_jump -> jump_npc,
+                     io.ctl.mem_illegal -> mem_reg_inst,
+                     ma_load -> mem_reg_alu_out,
+                     ma_str  -> mem_reg_alu_out ))
+   xcpt := ma_jump  || ma_load || ma_str || io.ctl.mem_illegal || csr.io.eret
+   io.dat.xcpt := xcpt
 
    // Add your own uarch counters here!
    csr.io.counters.foreach(_.inc := false.B)
@@ -374,10 +397,8 @@ class DatPath(implicit val conf: SodorConfiguration) extends Module
    {
       wb_reg_wbaddr        := mem_reg_wbaddr
       wb_reg_wbdata        := mem_wbdata
-      wb_reg_ctrl_rf_wen   := Mux(io.ctl.mem_illegal, false.B, mem_reg_ctrl_rf_wen)
-   }
-   .otherwise
-   {
+      wb_reg_ctrl_rf_wen   := Mux(xcpt, false.B, mem_reg_ctrl_rf_wen)
+   } .otherwise {
       wb_reg_ctrl_rf_wen   := false.B
    }
 
@@ -396,7 +417,7 @@ class DatPath(implicit val conf: SodorConfiguration) extends Module
    io.dat.mem_ctrl_dmem_val := mem_reg_ctrl_mem_val
 
    // datapath to data memory outputs
-   io.dmem.req.valid     := mem_reg_ctrl_mem_val
+   io.dmem.req.valid     := mem_reg_ctrl_mem_val && !ma_str
    io.dmem.req.bits.addr := mem_reg_alu_out.asUInt
    io.dmem.req.bits.fcn  := mem_reg_ctrl_mem_fcn
    io.dmem.req.bits.typ  := mem_reg_ctrl_mem_typ
@@ -421,7 +442,7 @@ class DatPath(implicit val conf: SodorConfiguration) extends Module
         Mux(io.ctl.exe_pc_sel === 3.U, Str("E"),   //EX -> E
         Mux(io.ctl.exe_pc_sel === 0.U, Str(" "), Str("?")))))
       , Mux(csr.io.illegal, Str("X"), Str(" "))
-      , Mux(io.ctl.pipeline_kill, BUBBLE, exe_reg_inst)
+      , Mux(xcpt, BUBBLE, exe_reg_inst)
       )
 
 }
