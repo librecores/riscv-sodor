@@ -27,6 +27,9 @@ class CtlToDatIo extends Bundle()
    val rf_wen   = Output(Bool())
    val csr_cmd  = Output(UInt(CSR.SZ))
    val illegal = Output(Bool())
+   val mem_en = Output(Bool())
+   val mem_fcn = Output(Bool())
+   val mem_typ = Output(UInt(MT_X.getWidth.W))
 }
 
 class CpathIo(implicit conf: SodorConfiguration) extends Bundle()
@@ -116,9 +119,7 @@ class CtlPath(implicit conf: SodorConfiguration) extends Module
 
 
    // Branch Logic
-   val ctrl_pc_sel = Mux(io.dat.csr_eret  ||
-                         io.ctl.illegal     , PC_EXC,
-                     Mux(cs_br_type === BR_N , PC_4,
+   val ctrl_pc_sel = Mux(cs_br_type === BR_N , PC_4,
                      Mux(cs_br_type === BR_NE ,  Mux(!io.dat.br_eq,  PC_BR, PC_4),
                      Mux(cs_br_type === BR_EQ ,  Mux( io.dat.br_eq,  PC_BR, PC_4),
                      Mux(cs_br_type === BR_GE ,  Mux(!io.dat.br_lt,  PC_BR, PC_4),
@@ -127,10 +128,11 @@ class CtlPath(implicit conf: SodorConfiguration) extends Module
                      Mux(cs_br_type === BR_LTU,  Mux( io.dat.br_ltu, PC_BR, PC_4),
                      Mux(cs_br_type === BR_J  ,  PC_J,
                      Mux(cs_br_type === BR_JR ,  PC_JR,
-                                                 PC_4))))))))))
+                                                 PC_4)))))))))
 
    // stall entire pipeline on I$ or D$ miss
-   val stall = !io.imem.resp.valid || !((cs_mem_en && io.dmem.resp.valid) || !cs_mem_en)
+   val memval = cs_mem_en && !io.dat.ma_ls
+   val stall = !io.imem.resp.valid || !((memval && io.dmem.resp.valid) || !memval)
 
    val ifkill = !(ctrl_pc_sel === PC_4)
 
@@ -141,6 +143,9 @@ class CtlPath(implicit conf: SodorConfiguration) extends Module
    io.ctl.op2_sel    := cs_op2_sel
    io.ctl.alu_fun    := cs_alu_fun
    io.ctl.wb_sel     := cs_wb_sel
+   io.ctl.mem_en     := cs_mem_en
+   io.ctl.mem_fcn    := cs_mem_fcn.toBool
+   io.ctl.mem_typ    := cs_msk_sel
    io.ctl.rf_wen     := Mux(stall, false.B, cs_rf_wen)
 
 
@@ -155,7 +160,7 @@ class CtlPath(implicit conf: SodorConfiguration) extends Module
    io.imem.req.bits.fcn := M_XRD
    io.imem.req.bits.typ := MT_WU
 
-   io.dmem.req.valid    := cs_mem_en
+   io.dmem.req.valid    := cs_mem_en && !io.dat.ma_ls
    io.dmem.req.bits.fcn := cs_mem_fcn
    io.dmem.req.bits.typ := cs_msk_sel
 

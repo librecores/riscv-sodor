@@ -22,7 +22,7 @@ class DatToCtlIo(implicit val conf: SodorConfiguration) extends Bundle()
    val br_eq = Output(Bool())
    val br_lt = Output(Bool())
    val br_ltu= Output(Bool())
-   val csr_eret = Output(Bool())
+   val ma_ls = Output(Bool())
 }
 
 class DpathIo(implicit val conf: SodorConfiguration) extends Bundle() 
@@ -53,10 +53,11 @@ class DatPath(implicit conf: SodorConfiguration) extends Module
    val exe_jmp_target      = Wire(UInt(32.W))
    val exe_jump_reg_target = Wire(UInt(32.W))
    val exception_target    = Wire(UInt(32.W))
+   val xcpt                = Wire(Bool())
  
    when (!io.ctl.stall)
    {
-      if_reg_pc := if_pc_next
+      if_reg_pc := Mux(xcpt, exception_target, if_pc_next)
    }
 
    val if_pc_plus4 = (if_reg_pc + 4.U(conf.xprlen.W))               
@@ -65,8 +66,7 @@ class DatPath(implicit conf: SodorConfiguration) extends Module
                   (io.ctl.pc_sel === PC_4)  -> if_pc_plus4,
                   (io.ctl.pc_sel === PC_BR) -> exe_br_target,
                   (io.ctl.pc_sel === PC_J ) -> exe_jmp_target,
-                  (io.ctl.pc_sel === PC_JR) -> exe_jump_reg_target,
-                  (io.ctl.pc_sel === PC_EXC)-> exception_target
+                  (io.ctl.pc_sel === PC_JR) -> exe_jump_reg_target
                   ))
    
    //Instruction Memory
@@ -78,7 +78,7 @@ class DatPath(implicit conf: SodorConfiguration) extends Module
       exe_reg_inst := exe_reg_inst
       exe_reg_pc   := exe_reg_pc
    }
-   .elsewhen(io.ctl.if_kill) 
+   .elsewhen(io.ctl.if_kill || xcpt) 
    {
       exe_reg_inst := BUBBLE
       exe_reg_pc   := 0.U
@@ -102,7 +102,7 @@ class DatPath(implicit conf: SodorConfiguration) extends Module
    // Register File
    val regfile = Mem(32,UInt(conf.xprlen.W))
 
-   when (io.ctl.rf_wen && (exe_wbaddr =/= 0.U) && !io.ctl.illegal)
+   when (io.ctl.rf_wen && !xcpt)
    {
       regfile(exe_wbaddr) := exe_wbdata
    }
@@ -169,17 +169,14 @@ class DatPath(implicit conf: SodorConfiguration) extends Module
    // Control Status Registers
    val csr = Module(new CSRFile())
    csr.io := DontCare
-   csr.io.decode.csr  := exe_reg_inst(CSR_ADDR_MSB,CSR_ADDR_LSB)
+   csr.io.rw.addr  := exe_reg_inst(CSR_ADDR_MSB,CSR_ADDR_LSB)
    csr.io.rw.cmd   := io.ctl.csr_cmd
    csr.io.rw.wdata := exe_alu_out
    val csr_out = csr.io.rw.rdata
 
    csr.io.retire    := !io.ctl.stall && !io.ctl.if_kill
-   csr.io.illegal := io.ctl.illegal
    csr.io.pc        := exe_reg_pc
    exception_target := csr.io.evec
-                    
-   io.dat.csr_eret := csr.io.eret
         
    // Add your own uarch counters here!
    csr.io.counters.foreach(_.inc := false.B)
@@ -204,7 +201,30 @@ class DatPath(implicit conf: SodorConfiguration) extends Module
    // datapath to data memory outputs
    io.dmem.req.bits.addr := exe_alu_out
    io.dmem.req.bits.data := exe_rs2_data.asUInt 
-         
+
+   val ma_typ           = Wire(Bool())
+   val ma_load          = Wire(Bool())
+   val ma_str           = Wire(Bool())
+   val ma_instr         = Wire(Bool())
+   io.dat.ma_ls  := ma_load || ma_str
+   ma_typ        := MuxLookup(io.ctl.mem_typ(1,0) ,false.B, 
+                     Array( 2.U -> exe_alu_out(0), 3.U -> exe_alu_out(1,0).orR ))
+   ma_load      := io.ctl.mem_en && !io.ctl.mem_fcn && ma_typ
+   ma_str       := io.ctl.mem_en && io.ctl.mem_fcn && ma_typ
+   ma_instr     := if_pc_next(1,0).orR
+
+   csr.io.xcpt    := ma_load || ma_str || ma_instr || io.ctl.illegal
+   csr.io.cause   := MuxCase(0.U, Array(
+                     ma_instr -> Causes.misaligned_fetch.U,
+                     io.ctl.illegal -> Causes.illegal_instruction.U,
+                     ma_load -> Causes.misaligned_load.U,
+                     ma_str  -> Causes.misaligned_store.U ))
+   csr.io.tval    := MuxCase(0.U, Array(
+                     ma_instr -> if_pc_next,
+                     io.ctl.illegal -> exe_reg_inst,
+                     ma_load -> exe_alu_out,
+                     ma_str  -> exe_alu_out ))
+   xcpt := ma_instr  || ma_load || ma_str || io.ctl.illegal || csr.io.eret      
 
    // Time Stamp Counter & Retired Instruction Counter 
    val tsc_reg = RegInit(0.U(conf.xprlen.W))
