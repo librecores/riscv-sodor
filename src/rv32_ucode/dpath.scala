@@ -21,7 +21,8 @@ class DatToCtlIo extends Bundle()
 {
    val inst     = Output(UInt(32.W))
    val alu_zero = Output(Bool())
-   val csr_eret = Output(Bool())
+   val xcpt = Output(Bool())
+   val ma_str = Output(Bool())
 }
 
 
@@ -40,6 +41,7 @@ class DatPath(implicit val conf: SodorConfiguration) extends Module
 
 
    // forward declarations
+   val xcpt      = Reg(Bool())
    val imm       = Wire(UInt(conf.xprlen.W))
    val alu       = Wire(UInt(conf.xprlen.W))
    val reg_rdata = Wire(UInt(conf.xprlen.W))
@@ -108,10 +110,10 @@ class DatPath(implicit val conf: SodorConfiguration) extends Module
    //32 x-registers, 1 pc-register
    val regfile = Reg(Vec(33, UInt(32.W)))
 
-   when (io.ctl.en_reg & io.ctl.reg_wr & reg_addr(4,0) =/= 0.U)
+   when (io.ctl.en_reg & !io.dat.xcpt & io.ctl.reg_wr & reg_addr(4,0) =/= 0.U)
    {
       regfile(reg_addr) := bus
-   } .elsewhen (io.ctl.en_reg & io.ctl.reg_wr & reg_addr(5) === 1.U) {
+   } .elsewhen (io.ctl.en_reg & !io.dat.xcpt & io.ctl.reg_wr & reg_addr(5) === 1.U) {
       regfile(reg_addr) := Cat(bus(31,1),0.U(1.W)) // PC
    }
 
@@ -134,17 +136,59 @@ class DatPath(implicit val conf: SodorConfiguration) extends Module
    // Control Status Registers
    val csr = Module(new CSRFile())
    csr.io := DontCare
-   csr.io.decode.csr  := csr_addr
+   csr.io.rw.addr  := csr_addr
    csr.io.rw.wdata := csr_wdata
    csr.io.rw.cmd   := io.ctl.csr_cmd
    csr_rdata       := csr.io.rw.rdata 
    csr.io.retire    := io.ctl.upc_is_fetch
    // illegal micro-code encountered
-   csr.io.illegal := io.ctl.illegal  
    csr.io.pc        := regfile(PC_IDX) - 4.U 
    exception_target := csr.io.evec
 
-   io.dat.csr_eret := csr.io.eret
+   // LOGIC to check for misaligned address 
+   val ma_load          = Wire(Bool())
+   val ma_str           = Wire(Bool())
+   val ma_jump          = Wire(Bool())
+   val rollback_reg     = Reg(UInt(conf.xprlen.W))
+   val rollback_idx     = Reg(UInt(5.W))
+   val rollback         = RegInit(false.B)
+   val tval             = Reg(UInt(conf.xprlen.W))
+   val cause            = Reg(UInt(conf.xprlen.W))
+   val ls_addr_ma_valid = MuxLookup(io.ctl.msk_sel(1,0) ,false.B, Array( 2.U -> reg_ma(0), 3.U -> reg_ma(1,0).orR ))
+   ma_jump      := alu(1) && io.ctl.en_reg & io.ctl.reg_wr & (io.ctl.reg_sel === RS_PC) & (io.ctl.ubr === UBR_J)
+   ma_load      := !io.ctl.mem_wr && io.ctl.en_mem && ls_addr_ma_valid
+   ma_str       := io.ctl.mem_wr && io.ctl.en_mem && ls_addr_ma_valid
+   csr.io.xcpt  := xcpt 
+   when (ma_load || ma_str || ma_jump || io.ctl.illegal) {
+      cause := MuxCase(0.U, Array(
+                        ma_jump -> Causes.misaligned_fetch.U,
+                        ma_load -> Causes.misaligned_load.U,
+                        ma_str  -> Causes.misaligned_store.U,
+                        io.ctl.illegal -> Causes.illegal_instruction.U ))
+      tval  := MuxCase(0.U, Array(
+                        ma_jump -> Cat(bus(31,1),0.U(1.W)),
+                        ma_load -> reg_ma,
+                        ma_str  -> reg_ma,
+                        io.ctl.illegal -> ir ))
+      xcpt  := !io.ctl.illegal
+   }
+   when (io.ctl.alu_op === ALU_EVEC) {
+      xcpt := false.B
+   }
+   csr.io.xcpt    := xcpt || RegNext(io.ctl.illegal)
+   csr.io.cause   := cause 
+   csr.io.tval    := tval
+   io.dat.xcpt    := ma_load || ma_str || ma_jump 
+   io.dat.ma_str  := ma_str
+   when ((io.ctl.upc_is_jalr_wb || io.ctl.upc_is_jal_wb) && reg_addr.orR) {
+      rollback_reg := regfile(reg_addr)
+      rollback_idx := reg_addr
+      rollback := true.B
+   }
+   when (ma_jump && rollback) {
+      regfile(rollback_idx) := rollback_reg
+      rollback := false.B
+   }
 
    // Add your own uarch counters here!
    csr.io.counters.foreach(_.inc := false.B)
@@ -178,7 +222,7 @@ class DatPath(implicit val conf: SodorConfiguration) extends Module
    io.dat.alu_zero := (alu === 0.U)
    
    // Output Signals to the Memory
-   io.mem.req.bits.addr := reg_ma.asUInt
+   io.mem.req.bits.addr := reg_ma
    io.mem.req.bits.data := bus
    // Retired Instruction Counter 
    val irt_reg = RegInit(0.U(conf.xprlen.W))

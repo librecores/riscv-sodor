@@ -35,7 +35,10 @@ class CtlToDatIo extends Bundle()
    val en_imm  = Output(Bool())
    val upc     = Output(UInt()) // for debugging purposes 
    val upc_is_fetch = Output(Bool()) // for debugging purposes 
+   val upc_is_jalr_wb = Output(Bool())
+   val upc_is_jal_wb = Output(Bool())
    val illegal = Output(Bool())
+   val ubr     = Output(UInt(UBR_N.getWidth.W))
 }
 
 class CpathIo(implicit conf: SodorConfiguration) extends Bundle() 
@@ -58,7 +61,7 @@ class CtlPath(implicit conf: SodorConfiguration) extends Module
         
    
    // Macro Instruction Opcode Dispatch Table
-   val upc_opgroup_target = Lookup (io.dat.inst, label_target_map("ILLEGAL").asUInt(label_sz.W),
+   val upc_opgroup_target = Lookup (io.dat.inst, label_target_map("ILLEGAL").U(label_sz.W),
                                                     opcode_dispatch_table)
 
    // Micro-PC State Register
@@ -103,7 +106,6 @@ class CtlPath(implicit conf: SodorConfiguration) extends Module
                       (cs.ubr === UBR_NZ)-> Mux (~io.dat.alu_zero, UPC_ABSOLUTE , UPC_NEXT),
                       (cs.ubr === UBR_S) -> Mux (mem_is_busy     , UPC_CURRENT  , UPC_NEXT)
                     ))
-
     
    upc_state_next := MuxCase(upc_state, Array(
                       (upc_sel === UPC_DISPATCH) -> upc_opgroup_target,
@@ -112,9 +114,15 @@ class CtlPath(implicit conf: SodorConfiguration) extends Module
 		                (upc_sel === UPC_CURRENT)  -> upc_state
                     ))
 
-   
    // Exception Handling ---------------------
-   io.ctl.illegal := label_target_map("ILLEGAL").U === upc_state   
+   // force next state to be illegal incase of 
+   // xcpt due to misaligned address jump/load/store
+   when (io.dat.xcpt && !io.ctl.illegal) {
+      upc_state_next := label_target_map("ILLEGAL").U(label_sz.W) 
+   }
+   
+   // Illegal instruction just for newly fetched(just dispatched)
+   io.ctl.illegal := (label_target_map("ILLEGAL").U === upc_state) && RegNext(cs.ubr === UBR_D)   
 
    // Cpath Control Interface
    io.ctl.msk_sel := cs.msk_sel
@@ -130,7 +138,8 @@ class CtlPath(implicit conf: SodorConfiguration) extends Module
    io.ctl.mem_wr  := cs.mem_wr     
    io.ctl.en_mem  := cs.en_mem     
    io.ctl.is_sel  := cs.is_sel     
-   io.ctl.en_imm  := cs.en_imm     
+   io.ctl.en_imm  := cs.en_imm
+   io.ctl.ubr     := cs.ubr     
 
    // convert CSR instructions with raddr1 == 0 to read-only CSR commands
    val rs1_addr = io.dat.inst(RS1_MSB, RS1_LSB)
@@ -140,11 +149,13 @@ class CtlPath(implicit conf: SodorConfiguration) extends Module
 
    io.ctl.upc := upc_state
    io.ctl.upc_is_fetch := (upc_state === label_target_map("FETCH").U)
+   io.ctl.upc_is_jalr_wb  := upc_state === (label_target_map("JALR").U + 2.U)
+   io.ctl.upc_is_jal_wb  := upc_state === (label_target_map("JAL").U + 1.U)
  
    // Memory Interface
    io.mem.req.bits.fcn := Mux(cs.en_mem && cs.mem_wr , M_XWR, M_XRD)
    io.mem.req.bits.typ := cs.msk_sel
-   io.mem.req.valid   := cs.en_mem.toBool 
+   io.mem.req.valid   := cs.en_mem.toBool && !io.dat.ma_str
 
 }
 
