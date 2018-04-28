@@ -268,9 +268,6 @@ contribute!
 
 * Reduce the port count on the scratchpad memory by having the Debug Module port
   share one of the cpu ports.
-* Add support for the ma_addr, ma_fetch ISA tests. This requires detecting
-  misaligned address exceptions.
-* Greatly cleanup the common/csr.scala file, to make it clearer and more
-  understandable.
 * Refactor the stall, kill, fencei, and exception logic of the 5-stage to be
   more understandable.
+* [Big Tasks](https://github.com/librecores/riscv-sodor/wiki/feature_pipeline)
