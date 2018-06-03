@@ -1,8 +1,7 @@
 About The Sodor Processor Collection
 ====================================
 [![Gitter](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/librecores/riscv-sodor?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-
-CI: [Librecores CI](https://ci.librecores.org/job/Projects/job/librecores/job/riscv-sodor/)
+[![Build Status](https://ci.librecores.org/buildStatus/icon?job=Projects/librecores/riscv-sodor/master)](https://ci.librecores.org/job/Projects/job/librecores/job/riscv-sodor/job/master/)
 
 Diagrams: [Sodor Github wiki](https://github.com/ucb-bar/riscv-sodor/wiki)
 
