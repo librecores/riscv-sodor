@@ -8,7 +8,7 @@ buildDir        := $(abspath ../../)
 chiseldir       := 
 
 CXX := g++
-SBT := java -Xmx4096M -Xss8M -XX:MaxPermSize=128M -jar $(srcDir)/sbt/sbt-launch.jar $(SBT_FLAGS)
+SBT := java -Xmx4096M -Xss8M -XX:MaxPermSize=128M -jar $(srcDir)/sbt-launch.jar $(SBT_FLAGS)
 
 global_asm_tests += \
 	rv32mi-p-csr \
