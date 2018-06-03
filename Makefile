@@ -36,18 +36,6 @@ prerequisites := $(if $(chiseldir),chisel-timestamp)
 
 all: $(prerequisites) $(patsubst %,emulator/%/emulator,$(targets))
 
-install: all
-	install -d $(RISCV)/bin
-	$(if $(findstring rv32_1stage,$(targets)),install -s -p -m 755 emulator/rv32_1stage/emulator $(RISCV)/bin/rv32_1stage-emulator)
-	$(if $(findstring rv32_2stage,$(targets)),install -s -p -m 755 emulator/rv32_2stage/emulator $(RISCV)/bin/rv32_2stage-emulator)
-	$(if $(findstring rv32_3stage,$(targets)),install -s -p -m 755 emulator/rv32_3stage/emulator $(RISCV)/bin/rv32_3stage-emulator)
-	$(if $(findstring rv32_5stage,$(targets)),install -s -p -m 755 emulator/rv32_5stage/emulator $(RISCV)/bin/rv32_5stage-emulator)
-	$(if $(findstring rv32_ucode,$(targets)),install -s -p -m 755 emulator/rv32_ucode/emulator $(RISCV)/bin/rv32_ucode-emulator)
-
-dist-src:
-	cd $(srcDir) && git archive --prefix=sodor/ -o $(buildDir)/sodor-`git rev-parse --short HEAD`.tar.gz HEAD
-
-
 compile:
 	$(SBT) "project ${MK_TARGET_PROC}" compile
 
@@ -103,7 +91,6 @@ emulator/%/generated-src/timestamp: emulator/%/emulator
 	@echo running basedir/Makefile: make run-emulator
 	@echo
 	make -C $(dir $<) run
-	install -d $(dir $@)
 	date > $@
 
 emulator/%/generated-src-debug/timestamp: emulator/%/emulator-debug
@@ -111,7 +98,6 @@ emulator/%/generated-src-debug/timestamp: emulator/%/emulator-debug
 	@echo running basedir/Makefile: make run-emulator-debug
 	@echo
 	make -C $(dir $<) run-debug
-	install -d $(dir $@)
 	date > $@
 
 emulator/%/emulator: $(prerequisites)
