@@ -3,15 +3,15 @@ pipeline {
     stages {
       stage("Test") {
         steps {
-		sh "git -C riscv-tests checkout isa/Makefile benchmarks/Makefile"
-          	sh "git submodule update --init --recursive -- riscv-fesvr riscv-tests"
-		sh "git submodule update --init -- rocket-chip "
-		sh "git -C rocket-chip submodule update --init -- hardfloat "
+            sh "git submodule update --init --recursive -- riscv-fesvr riscv-tests"
+		        sh "git -C riscv-tests checkout isa/Makefile benchmarks/Makefile"
+		        sh "git submodule update --init -- rocket-chip "
+		        sh "git -C rocket-chip submodule update --init -- hardfloat "
           	sh "cd riscv-fesvr; mkdir -p build; cd build; ../configure --prefix=/opt/riscv; make; cd ../../"
-	        sh "git -C riscv-tests checkout master; git -C riscv-tests pull"
-		sh "sed '/RISCV_GCC_OPTS/s/\$/ -march=rv32i -mabi=ilp32/' riscv-tests/isa/Makefile > temporary"
-	        sh "mv temporary riscv-tests/isa/Makefile"
-	        sh """make -C riscv-tests/isa rv32mi rv32ui-p-simple \
+            sh "git -C riscv-tests checkout master; git -C riscv-tests pull"
+		        sh "sed '/RISCV_GCC_OPTS/s/\$/ -march=rv32i -mabi=ilp32/' riscv-tests/isa/Makefile > temporary"
+            sh "mv temporary riscv-tests/isa/Makefile"
+            sh """make -C riscv-tests/isa rv32mi rv32ui-p-simple \
   rv32ui-p-add \
   rv32ui-p-addi \
   rv32ui-p-auipc \
@@ -47,10 +47,10 @@ pipeline {
   rv32ui-p-xor \
   rv32ui-p-xori """
 	        sh "sed '/RISCV_GCC_OPTS/s/\$/ -march=rv32i -mabi=ilp32/' riscv-tests/benchmarks/Makefile > temporary"
-          	sh "mv temporary riscv-tests/benchmarks/Makefile"
+          sh "mv temporary riscv-tests/benchmarks/Makefile"
 	        sh "make -C riscv-tests/benchmarks dhrystone.riscv median.riscv multiply.riscv qsort.riscv rsort.riscv towers.riscv vvadd.riscv"
-		sh "make clean"
-          	sh "make run-emulator"
+		      sh "make clean"
+          sh "make run-emulator"
         }
       }
     }
