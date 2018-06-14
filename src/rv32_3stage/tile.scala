@@ -20,11 +20,9 @@ package Sodor
 {
 
 import chisel3._
-import chisel3.util._
-import Constants._
-import Common._   
-import Common.Util._   
 
+import Constants.NUM_MEMORY_PORTS
+import Common.{SodorConfiguration, DebugModule, DMIIO, SyncScratchPadMemory}
 
 class SodorTile(implicit val conf: SodorConfiguration) extends Module
 {

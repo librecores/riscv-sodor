@@ -8,9 +8,8 @@ package Sodor
 {
 
 import chisel3._
-import chisel3.util._
 
-import Common._
+import Common.{SodorConfiguration, MemPortIo}
 
 // arbitrates memory access
 class SodorMemArbiter(implicit val conf: SodorConfiguration) extends Module

@@ -9,8 +9,7 @@ package Sodor
 {
 
 import chisel3._
-import chisel3.util._
-
+import chisel3.util.ListLookup
 
 import Common._
 import Common.Instructions._

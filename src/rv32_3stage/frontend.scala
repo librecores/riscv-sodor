@@ -28,11 +28,10 @@ package Sodor
 {
 
 import chisel3._
-import chisel3.util._
+import chisel3.util.{ValidIO, DecoupledIO}
 
-
-import Constants._
-import Common._
+import Constants.{START_ADDR, MT_WU, M_XRD}
+import Common.{SodorConfiguration, MemPortIo}
 
 
 class FrontEndIO(implicit val conf: SodorConfiguration) extends Bundle
