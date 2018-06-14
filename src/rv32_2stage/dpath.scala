@@ -9,12 +9,11 @@ package Sodor
 {
 
 import chisel3._
-import chisel3.util._
-
+import chisel3.util.{MuxCase, MuxLookup, Cat, Fill}
 
 import Constants._
-import Common._
-import Common.Constants._
+import Common.{Str, SodorConfiguration, MemPortIo, CSRFile, Causes}
+import Common.Constants.START_ADDR
 
 class DatToCtlIo(implicit val conf: SodorConfiguration) extends Bundle() 
 {

@@ -8,8 +8,7 @@ package Sodor
 {
 
 import chisel3._
-import chisel3.util._
-
+import chisel3.util.ListLookup
 
 import Common._
 import Common.Instructions._
@@ -32,13 +31,12 @@ class CtlToDatIo extends Bundle()
    val mem_typ = Output(UInt(MT_X.getWidth.W))
 }
 
-class CpathIo(implicit conf: SodorConfiguration) extends Bundle()
+class CpathIo(implicit val conf: SodorConfiguration) extends Bundle()
 {
    val imem = new MemPortIo(conf.xprlen)
    val dmem = new MemPortIo(conf.xprlen)
    val dat  = Flipped(new DatToCtlIo())
    val ctl  = new CtlToDatIo()
-   override def cloneType = { new CpathIo().asInstanceOf[this.type] }
 }
 
 
