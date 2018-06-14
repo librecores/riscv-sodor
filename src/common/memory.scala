@@ -16,12 +16,9 @@ package Common
 {
 
 import chisel3._
-import chisel3.util._
-import chisel3.experimental._
+import chisel3.util.{DecoupledIO, ValidIO, log2Ceil, Cat, Fill, MuxCase}
 
 import Constants._
-import Common._
-import Common.Util._
 
 trait MemoryOpConstants 
 {

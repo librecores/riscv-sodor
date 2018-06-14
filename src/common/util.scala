@@ -6,9 +6,8 @@ package Common
 {
 
 import chisel3._
-import chisel3.util._
+import chisel3.util.{Cat, Fill, log2Ceil}
 import scala.math._
-import scala.collection.mutable.ArrayBuffer
 
 object Util
 {

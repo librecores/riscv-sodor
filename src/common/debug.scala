@@ -1,9 +1,7 @@
 package Common
 
 import chisel3._
-import chisel3.util._
-import Common._
-import Common.Util._
+import chisel3.util.{DecoupledIO, RegEnable, Mux1H}
 import Util._
 import Constants._
 
@@ -32,12 +30,10 @@ object DMConsts{
 }
 
 
-class DMIReq(addrBits : Int) extends Bundle {
+class DMIReq(val addrBits : Int) extends Bundle {
   val op   = Output(UInt(DMConsts.dmiOpSize.W))
   val addr = Output(UInt(addrBits.W))
   val data = Output(UInt(DMConsts.dmiDataSize.W))
-
-  override def cloneType = new DMIReq(addrBits).asInstanceOf[this.type]
 }
 
 /** Structure to define the contents of a Debug Bus Response

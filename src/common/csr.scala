@@ -6,14 +6,10 @@ package Common
 
 
 import chisel3._
-import collection.mutable.LinkedHashMap
-import chisel3.util._
+import chisel3.util.{PopCount, Mux1H, Cat}
 import Util._
-import Instructions._
-
-
-import Common.Constants._
-import scala.math._
+import collection.mutable.LinkedHashMap
+import Common.Constants.MTVEC
 
 class MStatus extends Bundle {
     // not truly part of mstatus, but convenient

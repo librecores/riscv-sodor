@@ -1,7 +1,6 @@
 package Common
 {
 import chisel3._
-import chisel3.util._
 
 // This file was auto-generated from the repository at https://github.com/sifive/riscv-debug-spec.git,
 // 'make chisel'
