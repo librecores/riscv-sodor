@@ -18,8 +18,7 @@ package Sodor
 {
 
 import chisel3._
-import chisel3.util._
-import Common._
+import Common.{SodorConfiguration, MemPortIo}
 
 class CoreIo(implicit val conf: SodorConfiguration) extends Bundle 
 {

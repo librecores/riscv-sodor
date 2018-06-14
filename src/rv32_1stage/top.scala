@@ -1,11 +1,8 @@
 package Sodor
 
 import chisel3._
-import chisel3.util._
 
-import Constants._
-import Common._
-import Common.Util._
+import Common.{SodorConfiguration, SimDTM}
 
 class Top extends Module 
 {
