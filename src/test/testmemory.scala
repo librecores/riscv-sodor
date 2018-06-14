@@ -1,10 +1,9 @@
 package tests
 
 import chisel3._
-import chisel3.util._
-import chisel3.iotesters._
+import chisel3.iotesters.{SteppedHWIOTester, ChiselFlatSpec}
 
-import Common._
+import Common.{MemoryOpConstants, SodorConfiguration, SyncScratchPadMemory}
 
 class MemoryTests extends SteppedHWIOTester with MemoryOpConstants {
   implicit val sodor_conf = SodorConfiguration()

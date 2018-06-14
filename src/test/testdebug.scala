@@ -1,12 +1,10 @@
 package tests
 
 import chisel3._
-import chisel3.util._
-import chisel3.iotesters._
+import chisel3.iotesters.{PeekPokeTester, TesterOptionsManager}
 import org.scalatest.{Matchers, FlatSpec}
-import java.io._
 
-import Common._
+import Common.{DebugModule, DMI_RegAddrs, SodorConfiguration}
 
 class DebugPeekPokeTester(c: DebugModule) extends PeekPokeTester(c)  {
 
