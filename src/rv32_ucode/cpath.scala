@@ -10,6 +10,7 @@ package Sodor
 
 import chisel3._
 import chisel3.util._
+
 import Common._
 import Common.Instructions._
 import Constants._
@@ -41,12 +42,11 @@ class CtlToDatIo extends Bundle()
    val ubr     = Output(UInt(UBR_N.getWidth.W))
 }
 
-class CpathIo(implicit conf: SodorConfiguration) extends Bundle() 
+class CpathIo(implicit val conf: SodorConfiguration) extends Bundle() 
 {
    val mem  = new MemPortIo(conf.xprlen)
    val dat  = Flipped(new DatToCtlIo())
    val ctl  = new CtlToDatIo()
-   override def cloneType = { new CpathIo().asInstanceOf[this.type] }
 }
 
 class CtlPath(implicit conf: SodorConfiguration) extends Module

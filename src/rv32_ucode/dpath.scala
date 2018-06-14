@@ -9,11 +9,10 @@ package Sodor
 {
 
 import chisel3._
-import chisel3.util._
-
+import chisel3.util.{Cat, Fill, MuxLookup, MuxCase}
 
 import Constants._
-import Common._
+import Common.{MemPortIo, SodorConfiguration, Str, CSRFile, CSR, Causes}
 import Common.Constants._
 
 
