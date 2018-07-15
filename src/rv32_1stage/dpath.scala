@@ -228,7 +228,7 @@ class DatPath(implicit conf: SodorConfiguration) extends Module
          // use "sed" to parse out "@@@" from the other printf code above.
          // cat output_file | grep @@@ | sed 's/@@@.//' > file
          val rd = inst(RD_MSB,RD_LSB)
-         when (io.ctl.rf_wen && rd != 0.U)
+         when (io.ctl.rf_wen && rd =/= 0.U)
          {
             printf("@@@ 3 0x%x (0x%x) x%d 0x%x\n", pc_reg, inst, rd, wb_data)
          }

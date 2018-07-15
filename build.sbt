@@ -5,8 +5,9 @@ val defaultVersions = Map("chisel3" -> "latest.release",
 lazy val commonSettings = Seq (
   organization := "berkeley",
   version      := "3.0",
-  scalaVersion := "2.11.12",
+  scalaVersion := "2.12.4",
   traceLevel   := 15,
+  scalacOptions ++= Seq("-deprecation","-unchecked","-Xsource:2.11"),
   resolvers ++= Seq(
     "Sonatype Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
     "Sonatype Releases" at "https://oss.sonatype.org/content/repositories/releases"

@@ -56,7 +56,7 @@ clean-tests:
 	make -C $(patsubst %,emulator/%,$(all_targets)) clean-tests
 
 clean:
-	-find sbt -type d -name target -exec rm -rf {} \+
+	-find -type d -name target -exec rm -rf {} \+
 	for d in $(patsubst %,emulator/%,$(all_targets)) ; do \
 		make -C $$d clean ; \
 	done
