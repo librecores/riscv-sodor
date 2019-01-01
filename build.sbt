@@ -1,6 +1,6 @@
 val chiselVersion = System.getProperty("chiselVersion", "latest.release")
-val defaultVersions = Map("chisel3" -> "3.1.3",
-                          "chisel-iotesters" -> "1.2.5")
+val defaultVersions = Map("chisel3" -> "latest.release",
+                          "chisel-iotesters" -> "latest.release")
 
 lazy val commonSettings = Seq (
   organization := "berkeley",
