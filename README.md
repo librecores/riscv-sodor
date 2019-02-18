@@ -71,7 +71,7 @@ Because this repository is designed to be used as RISC-V processor
 examples written in [Chisel3](https://github.com/freechipsproject/chisel3/wiki) (and a regressive testsuite for Chisel updates),
 no external [RISC-V tools](http://riscv.org) are used (with the exception of
 the RISC-V [front-end server](https://github.com/codelec/riscv-fesvr) and
-optionally, the [spike-dasm](https://github.com/riscv/riscv-isa-run) binary to
+optionally, the [spike-dasm](https://github.com/riscv/riscv-isa-sim) binary to
 provide a disassembly of instructions in the generated *.out files).
 The assumption is that [riscv-gnu-toolchain](https://github.com/riscv/riscv-gnu-toolchain) is not
 available on the local system.  Thus, RISC-V unit tests and benchmarks were
